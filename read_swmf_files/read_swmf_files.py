@@ -1,6 +1,6 @@
 import numpy as np
-from swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
-from vtk_export_copy import vtk_export
+from read_swmf_files.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
+from read_swmf_files.vtk_export_copy import vtk_export
 
 def F2P(fortran_index):
     return fortran_index - 1
