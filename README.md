@@ -12,7 +12,7 @@ note, currently writing vtk only works with python 2
 # Install
 for user:
 ```
-pip install 'git+https://github.com/GaryQ-physics/swmf_file_reader.git --upgrade
+pip install 'git+https://github.com/GaryQ-physics/swmf_file_reader.git' --upgrade
 ```
 
 for developer:
