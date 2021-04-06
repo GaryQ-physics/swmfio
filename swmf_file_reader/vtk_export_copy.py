@@ -15,7 +15,7 @@ def vtk_export(out_filename, points,
                     cell_data_name = 'cell_data',
                     title='Title',
                     ftype='BINARY',
-                    debug=True):
+                    debug=False):
     """
     
     Parameters
@@ -49,7 +49,7 @@ def vtk_export(out_filename, points,
     #    Nx,Ny,Nz = connectivity
 
     if dataset == 'POLYDATA' and connectivity == 'LINES':
-        connectivity = {'LINES' : np.zeros(points.shape[0])}
+        connectivity = {'LINES' : np.array([points.shape[0]])}
 
     if dataset == 'STRUCTURED_GRID' and type(connectivity) != dict:
         connectivity = {'DIMENSIONS' : tuple(connectivity)}
@@ -135,7 +135,7 @@ def vtk_export(out_filename, points,
         if key == 'LINES':
             num_curves = len(connectivity['LINES'])
             f.write("LINES {} {} \n".format(num_curves, num_points + num_curves))
-            lines = np.zeros(num_points+num_curves)
+            lines = np.zeros(num_points+num_curves, dtype=int)
             i = 0
             j = 0
             for header in connectivity['LINES']:
