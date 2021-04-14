@@ -7,7 +7,7 @@ note, currently uses spacepy to read the .out file,
 and scipy.io.FortranFiles for the .tree file
 but eventually plans to do so without a spacepy dependency.
 
-note, currently writing vtk only works with python 2
+Tested for python 2.7 and 3.7
 
 # Install
 for user:

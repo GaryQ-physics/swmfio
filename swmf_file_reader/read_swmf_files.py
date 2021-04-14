@@ -470,10 +470,21 @@ def swmf2vtk_old(filetag, use_ascii=False): #use vtk hexahedron for cells
                     cell_data_name = 'b',
                     ftype=ftype)
 
+def B_dipole(X):
+    M = np.array([0,0,3.12e+4], dtype=np.float32)#, dtype=np.float32) # "dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
 
+    ret = np.empty(X.shape, dtype=np.float32)
+    divr = 1./np.sqrt(X[:,0]**2+X[:,1]**2+X[:,2]**2)
+    ret[:,0] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,0]  -  (divr**3) * M[0]
+    ret[:,1] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,1]  -  (divr**3) * M[1]
+    ret[:,2] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,2]  -  (divr**3) * M[2]
+    return ret
 
 def swmf2vtk(filetag, use_ascii=False): #use vtk voxel for cells
-    block_data, nBlock, nI, nJ, nK = get_block_data(filetag)
+    if filetag=='/tmp/3d__var_dipole':
+        block_data, nBlock, nI, nJ, nK = get_block_data('/tmp/3d__var_2_e20190902-041000-000')
+    else:
+        block_data, nBlock, nI, nJ, nK = get_block_data(filetag)
 
     npts = nBlock*nI*nJ*nK
     needed = nBlock*(nI+1)*(nJ+1)*(nK+1)
@@ -524,9 +535,16 @@ def swmf2vtk(filetag, use_ascii=False): #use vtk voxel for cells
     nVertices = unique_vertices.shape[0]
     nCells = npts
 
-    field = np.column_stack([block_data['bx'].ravel(),
-                             block_data['by'].ravel(),
-                             block_data['bz'].ravel()])
+    if filetag=='/tmp/3d__var_dipole':
+        X = np.column_stack([block_data['x'].ravel(),
+                             block_data['y'].ravel(),
+                             block_data['z'].ravel()])
+        field = B_dipole(X)
+    else:
+        field = np.column_stack([block_data['bx'].ravel(),
+                                 block_data['by'].ravel(),
+                                 block_data['bz'].ravel()])
+
 
     if use_ascii:
         ftype='ASCII'
