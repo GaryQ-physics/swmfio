@@ -91,8 +91,9 @@ def vtk_export(out_filename, points,
                             'WEDGE'          : 13,
                             'PYRAMID'        : 14
                         }
-            for i in range(len(connectivity['CELLS'].keys())):
-                ctype = connectivity['CELLS'].keys()[i]
+            ctypes = list(connectivity['CELLS'].keys())
+            for i in range(len(ctypes)):
+                ctype = ctypes[i]
                 cint = celltypes[ctype]
                 cnum = connectivity['CELLS'][ctype].shape[0]
                 cnpts = connectivity['CELLS'][ctype].shape[1]
