@@ -212,7 +212,6 @@ def read_all(filetag):
 
     if True:
         import spacepy.pybats.bats as bats
-        import read_swmf_files as rswmf
         data = bats.Bats2d(filetag + ".out")
         header = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
         assert(header == data.meta['header'].strip())
@@ -243,7 +242,7 @@ def read_all(filetag):
         if dTREE['iTree_IA'][F2P(Status_), iNodeP] == Used_:
             block2node[iBlockP] = iNodeP
             node2block[iNodeP] = iBlockP
-            xlims, ylims, zlims, gridspacing = rswmf.get_physical_dimensions(P2F(iNodeP), dTREE, returnCenters=True)
+            xlims, ylims, zlims, gridspacing = get_physical_dimensions(P2F(iNodeP), dTREE, returnCenters=True)
             assert(xlims[1]-xlims[0] == (nI-1)*gridspacing)
             assert(ylims[1]-ylims[0] == (nJ-1)*gridspacing)
             assert(zlims[1]-zlims[0] == (nK-1)*gridspacing)
