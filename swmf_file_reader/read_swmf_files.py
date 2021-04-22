@@ -1,6 +1,8 @@
 import numpy as np
+import scipy.io as sio
 from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
 from swmf_file_reader.vtk_export_copy import vtk_export
+from swmf_file_reader.named_var_indexes import nVarNeeded, index2str, str2index, _x,_y,_z,_bx,_by,_bz
 
 def F2P(fortran_index):
     return fortran_index - 1
@@ -10,62 +12,47 @@ def P2F(python_index):
 
 
 def read_info_file(filetag):
-    dINFO={}
+    cache = {'filetag' : filetag}
     with open(filetag+'.info','r') as f:
         for line in f.readlines():
             if line == '\n' : continue
             if line[0] == '#': continue
             splt = line.split()
             if len(splt) == 2:
-                dINFO[splt[1]] = splt[0]
-    return dINFO
-
+                cache[splt[1]] = splt[0]
+    return cache
 
 def read_tree_file(filetag):
     # first read info file
-    dINFO=read_info_file(filetag)
-    nDim = int(dINFO['nDim'])
-    nI = int(dINFO['BlockSize1'])
-    nJ = int(dINFO['BlockSize2'])
-    nK = int(dINFO['BlockSize3'])
+    cache = read_info_file(filetag)
+    cache['nDim'] = int(cache['nDim'])
+    cache['nI'] = int(cache['BlockSize1'])
+    cache['nJ'] = int(cache['BlockSize2'])
+    cache['nK'] = int(cache['BlockSize3'])
 
     ## Loading AMR tree
-    # directly read bytes
-    #f = open(filetag+".tree", 'rb')
-    #filebytes = np.fromfile(f, dtype=np.int32)
-    #f.close()
 
-    try:
-        # use scipy FortranFile
-        from scipy.io import FortranFile
-        ff = FortranFile(filetag+".tree", 'r')
-        if True:
-            nDim, nInfo, nNode = ff.read_reals(dtype=np.int32)
-            iRatio_D = ff.read_reals(dtype=np.int32) # Array of refinement ratios
-            nRoot_D = ff.read_reals(dtype=np.int32) # The number of root nodes in all dimension
-            iTree_IA = ff.read_reals(dtype=np.int32).reshape((nInfo,nNode), order='F')
-        else:
-            nDim, nInfo, nNode = ff.read_ints(dtype='i4')
-            iRatio_D = ff.read_ints(dtype='i4') # Array of refinement ratios
-            nRoot_D = ff.read_ints(dtype='i4') # The number of root nodes in all dimension
-            iTree_IA = ff.read_ints(dtype='i4').reshape((nInfo,nNode), order='fortran')
-    except:
-        raise RuntimeWarning ("scipy.io.FortranFile didnt work")
-        # use fortranfile
-        from fortranfile import FortranFile
-        ff = FortranFile(filetag+".tree") # read or write ???
-        nDim, nInfo, nNode = ff.readInts()
-        iRatio_D = ff.readInts() # Array of refinement ratios
-        nRoot_D = ff.readInts() # The number of root nodes in all dimension
-        iTree_IA = ff.readInts().reshape((nInfo,nNode), order='fortran')
+    ff = sio.FortranFile(filetag+".tree", 'r')
+    if True:#!!!!!!!!
+        nDim, nInfo, nNode = ff.read_reals(dtype=np.int32)
+        iRatio_D = ff.read_reals(dtype=np.int32) # Array of refinement ratios
+        nRoot_D = ff.read_reals(dtype=np.int32) # The number of root nodes in all dimension
+        iTree_IA = ff.read_reals(dtype=np.int32).reshape((nInfo,nNode), order='F')
+    else:
+        nDim, nInfo, nNode = ff.read_ints(dtype='i4')
+        iRatio_D = ff.read_ints(dtype='i4') # Array of refinement ratios
+        nRoot_D = ff.read_ints(dtype='i4') # The number of root nodes in all dimension
+        iTree_IA = ff.read_ints(dtype='i4').reshape((nInfo,nNode), order='fortran')
 
     ########################### check_thing_work #######################
+    assert(cache['nDim'] == nDim)
+    assert(iTree_IA.shape[1] == nNode)
     # Maximum number of ghost cells set by Config.pl script.
     # Valid values are 0,1,2,3,4,5
     nG = 2
     # Refinement ratios in the 3 dimensions. Either 1 or 2.
     # The values are set by the Config.pl script.
-    iRatio, jRatio, kRatio = min(2, nI), min(2, nJ), min(2, nK)
+    iRatio, jRatio, kRatio = min(2, cache['nI']), min(2, cache['nJ']), min(2, cache['nK'])
     # Number of dimensions in which grid adaptation is done
     nDimAmr = iRatio + jRatio + kRatio - 3
     assert(nDimAmr == nDim)
@@ -76,31 +63,61 @@ def read_tree_file(filetag):
     assert(np.all(iRatio_D == np.array([iRatio, jRatio, kRatio])))
     ####################################################################
 
-    dTREE = {'iTree_IA': iTree_IA, 'nRoot_D': nRoot_D, 'iRatio_D': iRatio_D,
-             'nDims': 3, 'nI': nI, 'nJ': nJ, 'nK': nK }
-    dTREE['xGlobalMin'] = float(dINFO['Coord1Min'])
-    dTREE['yGlobalMin'] = float(dINFO['Coord2Min'])
-    dTREE['zGlobalMin'] = float(dINFO['Coord3Min'])
-    dTREE['xGlobalMax'] = float(dINFO['Coord1Max'])
-    dTREE['yGlobalMax'] = float(dINFO['Coord2Max'])
-    dTREE['zGlobalMax'] = float(dINFO['Coord3Max'])
+    cache['nInfo']    = nInfo
+    cache['nNode']    = nNode
+    cache['iRatio_D'] = iRatio_D
+    cache['nRoot_D']  = nRoot_D
+    cache['iTree_IA'] = iTree_IA
 
-    return dTREE
+    cache['xGlobalMin'] = float(cache['Coord1Min'])
+    cache['yGlobalMin'] = float(cache['Coord2Min'])
+    cache['zGlobalMin'] = float(cache['Coord3Min'])
+    cache['xGlobalMax'] = float(cache['Coord1Max'])
+    cache['yGlobalMax'] = float(cache['Coord2Max'])
+    cache['zGlobalMax'] = float(cache['Coord3Max'])
+
+    return cache
 
 
 def read_out_file(filetag):
-    pass
+    nDim = 3
+    ff = sio.FortranFile(filetag+".out", 'r')
 
+    header = str(ff.read_ints(dtype=np.uint8).tobytes())[2:-1] # slice changes b'*' into *
+    nStep, Time, nDimOut, nParam, nVar = ff.read_ints(dtype=np.int32)
+    n_D = ff.read_ints(dtype=np.int32)
+    tmp=str(ff.read_ints(dtype=np.uint8).tobytes())
+    print(tmp)
+    variables = str(ff.read_ints(dtype=np.uint8).tobytes())[2:-1] # slice changes b'*' into *
+    variables = variables.strip().split(' ')
+
+    XYZ = ff.read_reals(dtype=np.float32)
+    XYZ = XYZ.reshape(3,XYZ.size//3)
+
+    data = {'x' : XYZ[0,:],
+            'y' : XYZ[1,:],
+            'z' : XYZ[2,:] }
+
+    for i in range(3,1000):
+        try:
+            A = ff.read_reals(dtype=np.float32)
+            data[variables[i]] = A
+        except sio._fortran.FortranEOFError:
+            break
+
+    expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
+    assert(expectedheader == header.strip())
+    return data
 
 # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
-def get_tree_position(iNode, dTREE, returnall=False):
+def get_tree_position(iNode, cache, returnall=False):
     '''
     Calculate normalized position of the edges of node iNode.
     Zero is at the minimum boundary of the grid, one is at the max boundary
     '''
-    iTree_IA = dTREE['iTree_IA']
-    nRoot_D = dTREE['nRoot_D']
-    iRatio_D = dTREE['iRatio_D']
+    iTree_IA = cache['iTree_IA']
+    nRoot_D  = cache['nRoot_D']
+    iRatio_D = cache['iRatio_D']
 
     iLevel = iTree_IA[F2P(Level_), F2P(iNode)]
 
@@ -124,20 +141,20 @@ def get_tree_position(iNode, dTREE, returnall=False):
         return PositionMin_D, PositionMax_D # what was returned in original
 
 
-def get_physical_dimensions(iNode, dTREE, returnCenters=False):
-    x_start = dTREE['xGlobalMin']
-    y_start = dTREE['yGlobalMin']
-    z_start = dTREE['zGlobalMin']
-    x_range = dTREE['xGlobalMax'] - dTREE['xGlobalMin']
-    y_range = dTREE['yGlobalMax'] - dTREE['yGlobalMin']
-    z_range = dTREE['zGlobalMax'] - dTREE['zGlobalMin']
+def get_physical_dimensions(iNode, cache, returnCenters=False):
+    x_start = cache['xGlobalMin']
+    y_start = cache['yGlobalMin']
+    z_start = cache['zGlobalMin']
+    x_range = cache['xGlobalMax'] - cache['xGlobalMin']
+    y_range = cache['yGlobalMax'] - cache['yGlobalMin']
+    z_range = cache['zGlobalMax'] - cache['zGlobalMin']
 
-    iLevel = dTREE['iTree_IA'][F2P(Level_), F2P(iNode)]
-    assert(dTREE['nI'] == dTREE['nJ'] == dTREE['nK'])
+    iLevel = cache['iTree_IA'][F2P(Level_), F2P(iNode)]
+    assert(cache['nI'] == cache['nJ'] == cache['nK'])
     assert(x_range == y_range == z_range)
-    gridspacing = (x_range/dTREE['nI'])*0.5**iLevel
+    gridspacing = (x_range/cache['nI'])*0.5**iLevel
 
-    PositionMin_D, PositionMax_D = get_tree_position(iNode, dTREE)
+    PositionMin_D, PositionMax_D = get_tree_position(iNode, cache)
     xmin = x_range*(PositionMin_D[0]) + x_start
     ymin = y_range*(PositionMin_D[1]) + y_start
     zmin = z_range*(PositionMin_D[2]) + z_start
@@ -160,12 +177,12 @@ def get_physical_dimensions(iNode, dTREE, returnCenters=False):
 
 
 # supposed to reproduce SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 975, but differently
-def find_tree_node(point, dTREE):
-    iTree_IA = dTREE['iTree_IA']
+def find_tree_node(point, cache):
+    iTree_IA = cache['iTree_IA']
 
-    xin = dTREE['xGlobalMin'] <= point[0] <= dTREE['xGlobalMax']
-    yin = dTREE['yGlobalMin'] <= point[1] <= dTREE['yGlobalMax']
-    zin = dTREE['zGlobalMin'] <= point[2] <= dTREE['zGlobalMax']
+    xin = cache['xGlobalMin'] <= point[0] <= cache['xGlobalMax']
+    yin = cache['yGlobalMin'] <= point[1] <= cache['yGlobalMax']
+    zin = cache['zGlobalMin'] <= point[2] <= cache['zGlobalMax']
 
     if not (xin and yin and zin): 
         raise RuntimeError ('point out of simulation volume')
@@ -177,7 +194,7 @@ def find_tree_node(point, dTREE):
 
         for j in range(8):
             child = iTree_IA[F2P(Child1_+j), F2P(iNode)]
-            xminmax, yminmax, zminmax, gridspacing = get_physical_dimensions(child, dTREE, returnCenters=False)
+            xminmax, yminmax, zminmax, gridspacing = get_physical_dimensions(child, cache, returnCenters=False)
 
             xin = xminmax[0] <= point[0] <= xminmax[1]
             yin = yminmax[0] <= point[1] <= yminmax[1]
@@ -213,11 +230,12 @@ def read_all(filetag):
     if True:
         import spacepy.pybats.bats as bats
         data = bats.Bats2d(filetag + ".out")
-        header = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
-        assert(header == data.meta['header'].strip())
+        expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
+        assert(expectedheader == data.meta['header'].strip())
     else:
         data = read_out_file(filetag) # TODO : eventually
-    dTREE = read_tree_file(filetag)
+
+    cache = read_tree_file(filetag)
 
     # in what follows:
     #  the P in iNodeP and iBlockP stands for python like indexing (as oposed to fortran)
@@ -230,19 +248,19 @@ def read_all(filetag):
     #  Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
     points = np.column_stack([data['x'],data['y'],data['z']])
     npts = points.shape[0]
-    nI, nJ, nK = dTREE['nI'], dTREE['nJ'], dTREE['nK']
+    nI, nJ, nK = cache['nI'], cache['nJ'], cache['nK']
     nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
-    nNode = dTREE['iTree_IA'].shape[1]
+    nNode = cache['nNode']
 
     iBlockP = 0
-    block2node = -np.ones((nBlock,), dtype=int)
-    node2block = -np.ones((nNode,), dtype=int)
+    block2node = -np.ones((nBlock,), dtype=int)#!!
+    node2block = -np.ones((nNode,), dtype=int)#!!
     reconstructed_points = np.nan*np.empty((npts,3), dtype=np.float32)
     for iNodeP in range(nNode):
-        if dTREE['iTree_IA'][F2P(Status_), iNodeP] == Used_:
+        if cache['iTree_IA'][F2P(Status_), iNodeP] == Used_:
             block2node[iBlockP] = iNodeP
             node2block[iNodeP] = iBlockP
-            xlims, ylims, zlims, gridspacing = get_physical_dimensions(P2F(iNodeP), dTREE, returnCenters=True)
+            xlims, ylims, zlims, gridspacing = get_physical_dimensions(P2F(iNodeP), cache, returnCenters=True)
             assert(xlims[1]-xlims[0] == (nI-1)*gridspacing)
             assert(ylims[1]-ylims[0] == (nJ-1)*gridspacing)
             assert(zlims[1]-zlims[0] == (nK-1)*gridspacing)
@@ -270,22 +288,47 @@ def read_all(filetag):
             iBlockP += 1
 
     ind = Reorder(points, reconstructed_points)
-    #assert(np.all( points[ind,:] == reconstructed_points ))
-    return [data, dTREE, ind, block2node, node2block]
 
-def get_block_data(filetag):
-    data, dTREE, ind, block2node, node2block = read_all(filetag)
-    nBlock, nI, nJ, nK = block2node.size, dTREE['nI'], dTREE['nJ'], dTREE['nK']
-    block_data = {}
-    for key in 'x y z jx jy jz bx by bz b1x b1y b1z'.split(' '):
-        block_data[key] = data[key][ind].reshape((nBlock, nI, nJ, nK))
-    return [block_data, nBlock, nI, nJ, nK]
+    DataArray = np.empty((nVarNeeded, nBlock, nI, nJ, nK), dtype=np.float32); DataArray[:,:,:,:,:] = np.nan
+    for index in range(nVarNeeded):
+        DataArray[index,:,:,:,:] = data[index2str[index]][ind].reshape((nBlock, nI, nJ, nK))
+    del data, ind
 
-def find_index(point):
-    pass
+    cache['DataArray'] = DataArray
+    cache['block2node'] = block2node
+    cache['node2block'] = node2block
+    cache['nBlock'] = nBlock
+    return cache
 
 
-def interpolate(filetag, point, var='p', debug=False):
+def find_index(filetag, point, cache=None, debug=False):
+    if cache is None:
+        cache = read_all(filetag)
+    else:
+        assert(cache['filetag'] == filetag)
+
+    def getvar(_var, iNode, i,j,k):
+        return cache['DataArray'][str2index[_var],:,:,:,:][cache['node2block'][F2P(iNode)],i,j,k]
+
+    iNode = find_tree_node(point, cache)
+
+    # get the gridspacing in x,y,z
+    gridspacingX = getvar('x', iNode, 1,0,0) - getvar('x', iNode, 0,0,0)
+    gridspacingY = getvar('y', iNode, 0,1,0) - getvar('y', iNode, 0,0,0)
+    gridspacingZ = getvar('z', iNode, 0,0,1) - getvar('z', iNode, 0,0,0)
+
+    # i0 is s.t. the highest index s.t. the x coordinate of the 
+    #  corresponding cell block_data[iNode,i0,:,:]  is still less than point[0]
+    i0 = (point[0] - getvar('x', iNode, 0, 0, 0))/gridspacingX
+    j0 = (point[1] - getvar('y', iNode, 0, 0, 0))/gridspacingY
+    k0 = (point[2] - getvar('z', iNode, 0, 0, 0))/gridspacingZ
+    if i0.is_integer() and j0.is_integer() and k0.is_integer():
+        return (cache['node2block'][F2P(iNode)],int(i0),int(j0),int(k0)) # (iBlockP,i,j,k)
+    else:
+        return None
+
+
+def interpolate(filetag, point, var='p', cache=None, debug=False):
     """
     arguments:
         filetag:
@@ -304,13 +347,15 @@ def interpolate(filetag, point, var='p', debug=False):
     #      then maybe this function can be vectorized as well for points (N,3)
     # this function should maybe go in different file also
 
-    data, dTREE, ind, block2node, node2block = read_all(filetag)
-    nBlock, nI, nJ, nK = block2node.size, dTREE['nI'], dTREE['nJ'], dTREE['nK']
+    if cache is None:
+        cache = read_all(filetag)
+    else:
+        assert(cache['filetag'] == filetag)
 
     def getvar(_var, iNode, i,j,k):
-        return data[_var][ind].reshape(nBlock,nI,nJ,nK)[node2block[F2P(iNode)],i,j,k]
+        return cache['DataArray'][str2index[_var],:,:,:,:][cache['node2block'][F2P(iNode)],i,j,k]
 
-    iNode = find_tree_node(point, dTREE)
+    iNode = find_tree_node(point, cache)
 
     # get the gridspacing in x,y,z
     gridspacingX = getvar('x', iNode, 1,0,0) - getvar('x', iNode, 0,0,0)
@@ -322,8 +367,7 @@ def interpolate(filetag, point, var='p', debug=False):
     i0 = int(np.floor( (point[0] - getvar('x', iNode, 0, 0, 0))/gridspacingX ))
     j0 = int(np.floor( (point[1] - getvar('y', iNode, 0, 0, 0))/gridspacingY ))
     k0 = int(np.floor( (point[2] - getvar('z', iNode, 0, 0, 0))/gridspacingZ ))
-    if debug: print(getvar('x', iNode, 0, 0, 0),getvar('y', iNode, 0, 0, 0),getvar('z', iNode, 0, 0, 0))
-    if debug: print(i0,j0,k0)
+
     #i1 = i0+1 is the lowest index s.t. the x coordinate of the 
     #  corresponding cell block_data[iNode,i1,:,:]  is still greater than point[0]
 
@@ -336,8 +380,8 @@ def interpolate(filetag, point, var='p', debug=False):
         i0 = 0
         i1 = 0
         if debug: print('edge case')
-    elif i0 == dTREE['nI']-1:
-        i1 = dTREE['nI']-1
+    elif i0 == cache['nI']-1:
+        i1 = cache['nI']-1
         if debug: print('edge case')
     else:
         i1 = i0 + 1
@@ -346,8 +390,8 @@ def interpolate(filetag, point, var='p', debug=False):
         j0 = 0
         j1 = 0
         if debug: print('edge case')
-    elif j0 == dTREE['nJ']-1:
-        j1 = dTREE['nJ']-1
+    elif j0 == cache['nJ']-1:
+        j1 = cache['nJ']-1
         if debug: print('edge case')
     else:
         j1 = j0 + 1
@@ -356,8 +400,8 @@ def interpolate(filetag, point, var='p', debug=False):
         k0 = 0
         k1 = 0
         if debug: print('edge case')
-    elif k0 == dTREE['nK']-1:
-        k1 = dTREE['nK']-1
+    elif k0 == cache['nK']-1:
+        k1 = cache['nK']-1
         if debug: print('edge case')
     else:
         k1 = k0 + 1
@@ -372,8 +416,7 @@ def interpolate(filetag, point, var='p', debug=False):
     if debug: print(getvar('x', iNode,  i0, j0, k0))
     if debug: print(getvar('y', iNode,  i0, j0, k0))
     if debug: print(getvar('z', iNode,  i0, j0, k0))
-    if debug: print('hellothere')
-    if debug: print((iNode, node2block[F2P(iNode)], i0, j0, k0))
+    if debug: print((iNode, cache['node2block'][F2P(iNode)], i0, j0, k0))
 
 
     #https://en.wikipedia.org/wiki/Trilinear_interpolation
@@ -401,104 +444,65 @@ def interpolate(filetag, point, var='p', debug=False):
     return c
 
 
-def swmf2vtk_old(filetag, use_ascii=False): #use vtk hexahedron for cells
-    block_data, nBlock, nI, nJ, nK = get_block_data(filetag)
-
-    npts = nBlock*nI*nJ*nK
-    needed = nBlock*(nI+1)*(nJ+1)*(nK+1)
-
-    all_vertices = np.empty( (needed, 3) )
-    for iBlockP in range(nBlock):
-        gridspacing = block_data['x'][iBlockP, 1,0,0] - block_data['x'][iBlockP, 0,0,0]
-
-        xmin = block_data['x'][iBlockP, 0,0,0] - gridspacing/2.
-        ymin = block_data['y'][iBlockP, 0,0,0] - gridspacing/2.
-        zmin = block_data['z'][iBlockP, 0,0,0] - gridspacing/2.
-
-        xmax = block_data['x'][iBlockP, nI-1,0   ,0   ] + gridspacing/2.
-        ymax = block_data['y'][iBlockP, 0   ,nJ-1,0   ] + gridspacing/2.
-        zmax = block_data['z'][iBlockP, 0   ,0   ,nK-1] + gridspacing/2.
-
-        grid = np.mgrid[xmin:xmax+gridspacing:gridspacing, 
-                        ymin:ymax+gridspacing:gridspacing,
-                        zmin:zmax+gridspacing:gridspacing ]
-        grid = np.array(grid.reshape((3,(nI+1)*(nJ+1)*(nK+1))).transpose(), order='C')
-
-        start = iBlockP*(nI+1)*(nJ+1)*(nK+1)
-        end = (iBlockP+1)*(nI+1)*(nJ+1)*(nK+1)
-        all_vertices[start:end,:] = grid
-
-    unique_vertices, pointTo = np.unique(all_vertices,axis=0,return_inverse=True)
-    assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
-
-    loc_in_all = np.arange(needed).reshape( (nBlock,(nI+1),(nJ+1),(nK+1)) )
-
-    cells = []
-    for iBlockP in range(nBlock):
-        for i in range(nI):
-            for j in range(nJ):
-                for k in range(nK):
-                    cells.append(
-                         (pointTo[loc_in_all[iBlockP,i  ,j  ,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j  ,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j+1,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j+1,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j  ,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j  ,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j+1,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j+1,k+1]] )
-                        )
-    cells = np.array(cells, dtype=int)
-
-    nVertices = unique_vertices.shape[0]
-    nCells = npts
-
-    field = np.column_stack([block_data['bx'].ravel(),
-                             block_data['by'].ravel(),
-                             block_data['bz'].ravel()])
-
-    if use_ascii:
-        ftype='ASCII'
-    else:
-        ftype='BINARY'
-    vtk_export(filetag+'-hexahedron.vtk', unique_vertices,
-                    dataset = 'UNSTRUCTURED_GRID',
-                    connectivity = {'CELLS' : {'HEXAHEDRON': cells} },
-                    cell_data = field,
-                    texture = 'VECTORS',
-                    cell_data_name = 'b',
-                    ftype=ftype)
-
-def B_dipole(X):
+def B_dipole(x,y,z):
     M = np.array([0,0,3.12e+4], dtype=np.float32)#, dtype=np.float32) # "dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
 
-    ret = np.empty(X.shape, dtype=np.float32)
-    divr = 1./np.sqrt(X[:,0]**2+X[:,1]**2+X[:,2]**2)
-    ret[:,0] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,0]  -  (divr**3) * M[0]
-    ret[:,1] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,1]  -  (divr**3) * M[1]
-    ret[:,2] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,2]  -  (divr**3) * M[2]
-    return ret
+    #ret = np.empty(X.shape, dtype=np.float32)
+    #divr = 1./np.sqrt(X[:,0]**2 + X[:,1]**2 + X[:,2]**2)
+    #ret[:,0] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,0]  -  (divr**3)*M[0]
+    #ret[:,1] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,1]  -  (divr**3)*M[1]
+    #ret[:,2] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,2]  -  (divr**3)*M[2]
+    #return ret
 
-def swmf2vtk(filetag, use_ascii=False): #use vtk voxel for cells
-    if filetag=='/tmp/3d__var_dipole':
-        block_data, nBlock, nI, nJ, nK = get_block_data('/tmp/3d__var_2_e20190902-041000-000')
+    divr = 1./np.sqrt(x**2 + y**2 + z**2)
+    ret_x = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* x  -  (divr**3)*M[0]
+    ret_y = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* y  -  (divr**3)*M[1]
+    ret_z = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* z  -  (divr**3)*M[2]
+    return ret_x, ret_y, ret_z
+
+def swmf2vtk(filetag, use_ascii=False, cache=None):
+    if cache is None:
+        if filetag=='/tmp/3d__var_dipole':
+            cache = read_all('/tmp/3d__var_2_e20190902-041000-000')
+        else:
+            cache = read_all(filetag)
     else:
-        block_data, nBlock, nI, nJ, nK = get_block_data(filetag)
+        assert(cache['filetag'] == filetag)
+
+    nBlock, nI, nJ, nK = cache['nBlock'], cache['nI'], cache['nJ'], cache['nK']
+
+    x_blk = cache['DataArray'][_x,:,:,:,:]
+    y_blk = cache['DataArray'][_y,:,:,:,:]
+    z_blk = cache['DataArray'][_z,:,:,:,:]
+
+    if filetag=='/tmp/3d__var_dipole':
+        bx_blk, by_blk, bz_blk = B_dipole(x_blk.ravel(), y_blk.ravel(), z_blk.ravel())
+        bx_blk = bx_blk.reshape((nBlock,nI,nJ,nK))
+        by_blk = by_blk.reshape((nBlock,nI,nJ,nK))
+        bz_blk = bz_blk.reshape((nBlock,nI,nJ,nK))
+    else:
+        bx_blk = cache['DataArray'][_bx,:,:,:,:]
+        by_blk = cache['DataArray'][_by,:,:,:,:]
+        bz_blk = cache['DataArray'][_bz,:,:,:,:]
+
+    field = np.column_stack([bx_blk.ravel(),
+                             by_blk.ravel(),
+                             bz_blk.ravel()])
 
     npts = nBlock*nI*nJ*nK
     needed = nBlock*(nI+1)*(nJ+1)*(nK+1)
 
     all_vertices = np.empty( (needed, 3) )
     for iBlockP in range(nBlock):
-        gridspacing = block_data['x'][iBlockP, 1,0,0] - block_data['x'][iBlockP, 0,0,0]
+        gridspacing = x_blk[iBlockP, 1,0,0] - x_blk[iBlockP, 0,0,0]
 
-        xmin = block_data['x'][iBlockP, 0,0,0] - gridspacing/2.
-        ymin = block_data['y'][iBlockP, 0,0,0] - gridspacing/2.
-        zmin = block_data['z'][iBlockP, 0,0,0] - gridspacing/2.
+        xmin = x_blk[iBlockP, 0,0,0] - gridspacing/2.
+        ymin = y_blk[iBlockP, 0,0,0] - gridspacing/2.
+        zmin = z_blk[iBlockP, 0,0,0] - gridspacing/2.
 
-        xmax = block_data['x'][iBlockP, nI-1,0   ,0   ] + gridspacing/2.
-        ymax = block_data['y'][iBlockP, 0   ,nJ-1,0   ] + gridspacing/2.
-        zmax = block_data['z'][iBlockP, 0   ,0   ,nK-1] + gridspacing/2.
+        xmax = x_blk[iBlockP, nI-1,0   ,0   ] + gridspacing/2.
+        ymax = y_blk[iBlockP, 0   ,nJ-1,0   ] + gridspacing/2.
+        zmax = z_blk[iBlockP, 0   ,0   ,nK-1] + gridspacing/2.
 
         grid = np.mgrid[xmin:xmax+gridspacing:gridspacing, 
                         ymin:ymax+gridspacing:gridspacing,
@@ -519,46 +523,56 @@ def swmf2vtk(filetag, use_ascii=False): #use vtk voxel for cells
         for i in range(nI):
             for j in range(nJ):
                 for k in range(nK):
-                    cells.append(
-                         (pointTo[loc_in_all[iBlockP,i  ,j  ,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j  ,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j+1,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j+1,k  ]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j  ,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j  ,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i  ,j+1,k+1]] ,
-                          pointTo[loc_in_all[iBlockP,i+1,j+1,k+1]] )
-                        )
+                    if True: # use vtk voxel for cells
+                        celltype = 'VOXEL'
+                        cells.append(
+                             (pointTo[loc_in_all[iBlockP,i  ,j  ,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j  ,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j+1,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j+1,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j  ,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j  ,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j+1,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j+1,k+1]] )
+                            )
+                    else: # use vtk hexahedron for cells
+                        celltype = 'HEXAHEDRON'
+                        cells.append(
+                             (pointTo[loc_in_all[iBlockP,i  ,j  ,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j  ,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j+1,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j+1,k  ]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j  ,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j  ,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i+1,j+1,k+1]] ,
+                              pointTo[loc_in_all[iBlockP,i  ,j+1,k+1]] )
+                            )
+
     cells = np.array(cells, dtype=int)
 
     nVertices = unique_vertices.shape[0]
     nCells = npts
 
-    if filetag=='/tmp/3d__var_dipole':
-        X = np.column_stack([block_data['x'].ravel(),
-                             block_data['y'].ravel(),
-                             block_data['z'].ravel()])
-        field = B_dipole(X)
-    else:
-        field = np.column_stack([block_data['bx'].ravel(),
-                                 block_data['by'].ravel(),
-                                 block_data['bz'].ravel()])
-
-
     if use_ascii:
         ftype='ASCII'
     else:
         ftype='BINARY'
+
     vtk_export(filetag+'.vtk', unique_vertices,
                     dataset = 'UNSTRUCTURED_GRID',
-                    connectivity = {'CELLS' : {'VOXEL': cells} },
+                    connectivity = {'CELLS' : {celltype : cells} },
                     cell_data = field,
                     texture = 'VECTORS',
                     cell_data_name = 'b',
                     ftype=ftype)
-
 
 
 if __name__ == '__main__':
-    print(interpolate("/home/gary/temp/3d__var_3_e20031120-070000-000",point,var='p', debug=True))
-
+    #point = np.array([-146.,  -14.,  -14.])
+    #ftag = "/home/gary/temp/3d__var_3_e20031120-070000-000"
+    #cac = read_all(ftag)
+    #print(interpolate(ftag,point,var='p', cache=cac))
+    #indx = find_index(ftag,point, cache=cac)
+    #print(indx)
+    #print(cac['DataArray'][(14,*indx)])
+    swmf2vtk('/tmp/3d__var_dipole')
