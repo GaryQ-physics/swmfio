@@ -22,6 +22,7 @@ def read_info_file(filetag):
                 cache[splt[1]] = splt[0]
     return cache
 
+
 def read_tree_file(filetag):
     # first read info file
     cache = read_info_file(filetag)
@@ -98,12 +99,14 @@ def read_out_file(filetag):
             'y' : XYZ[1,:],
             'z' : XYZ[2,:] }
 
-    for i in range(3,1000):
+    i = 3
+    while(True):
         try:
             A = ff.read_reals(dtype=np.float32)
             data[variables[i]] = A
         except sio._fortran.FortranEOFError:
             break
+        i = i + 1
 
     expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
     assert(expectedheader == header.strip())
@@ -175,7 +178,6 @@ def get_physical_dimensions(iNode, cache, returnCenters=False):
     else:
         return xminmax, yminmax, zminmax, gridspacing
 
-
 # supposed to reproduce SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 975, but differently
 def find_tree_node(point, cache):
     iTree_IA = cache['iTree_IA']
@@ -227,13 +229,10 @@ def read_all(filetag):
             raise RuntimeError ('arrays inputed arent reordering of each other')
         return sort1[undo2]
 
-    if True:
-        import spacepy.pybats.bats as bats
-        data = bats.Bats2d(filetag + ".out")
-        expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
-        assert(expectedheader == data.meta['header'].strip())
-    else:
-        data = read_out_file(filetag) # TODO : eventually
+    import spacepy.pybats.bats as bats
+    data = bats.Bats2d(filetag + ".out")
+    expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
+    assert(expectedheader == data.meta['header'].strip())
 
     cache = read_tree_file(filetag)
 
@@ -299,6 +298,37 @@ def read_all(filetag):
     cache['node2block'] = node2block
     cache['nBlock'] = nBlock
     return cache
+
+
+def read_all2(filetag):
+    print('check 1')
+    cache = read_tree_file(filetag)
+    data = read_out_file(filetag)
+    points = np.column_stack([data['x'],data['y'],data['z']])
+    npts = points.shape[0]
+    nI, nJ, nK = cache['nI'], cache['nJ'], cache['nK']
+    nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
+    nNode = cache['nNode']
+    print('check 2')
+
+    block2node = -np.ones((nBlock,), dtype=int)#!!
+    node2block = -np.ones((nNode,), dtype=int)#!!
+    for iBlockP in range(nBlock):
+        iNodeP = F2P( find_tree_node(points[iBlockP*8**3, :], cache) )
+        block2node[iBlockP] = iNodeP
+        node2block[iNodeP] = iBlockP
+    print('check 3')
+    DataArray = np.empty((nVarNeeded, nBlock, nI, nJ, nK), dtype=np.float32); DataArray[:,:,:,:,:] = np.nan
+    for varind in range(nVarNeeded):
+        DataArray[varind,:,:,:,:] = data[index2str[varind]].reshape((nBlock, nI, nJ, nK))
+    del data
+    print('check 4')
+    cache['DataArray'] = DataArray
+    cache['block2node'] = block2node
+    cache['node2block'] = node2block
+    cache['nBlock'] = nBlock
+    return cache
+
 
 
 def find_index(filetag, point, cache=None, debug=False):
@@ -460,6 +490,7 @@ def B_dipole(x,y,z):
     ret_z = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* z  -  (divr**3)*M[2]
     return ret_x, ret_y, ret_z
 
+
 def swmf2vtk(filetag, use_ascii=False, cache=None):
     if cache is None:
         if filetag=='/tmp/3d__var_dipole':
@@ -567,6 +598,17 @@ def swmf2vtk(filetag, use_ascii=False, cache=None):
                     ftype=ftype)
 
 
+def model_api(filetag, cache=None):
+    if cache is None:
+        cache = read_all(filetag)
+    else:
+        assert(cache['filetag'] == filetag)
+
+    #from magnetosphere import MagnetosphereState
+    #MagnetosphereState(run_name=, time_Tstring=, interpolator=, data_array=, variables=, units=)
+
+
+
 if __name__ == '__main__':
     #point = np.array([-146.,  -14.,  -14.])
     #ftag = "/home/gary/temp/3d__var_3_e20031120-070000-000"
@@ -575,4 +617,5 @@ if __name__ == '__main__':
     #indx = find_index(ftag,point, cache=cac)
     #print(indx)
     #print(cac['DataArray'][(14,*indx)])
-    swmf2vtk('/tmp/3d__var_dipole')
+    #read_all('/tmp/3d__var_dipole')
+    cache = read_all2('/tmp/3d__var_2_e20190902-041000-000')
