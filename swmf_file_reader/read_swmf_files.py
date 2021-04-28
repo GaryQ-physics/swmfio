@@ -1,59 +1,78 @@
+from collections import namedtuple
 import numpy as np
 import scipy.io as sio
 from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
 from swmf_file_reader.vtk_export_copy import vtk_export
 from swmf_file_reader.named_var_indexes import nVarNeeded, index2str, str2index, _x,_y,_z,_bx,_by,_bz
 
+try:
+    from numba import njit
+except:
+    print("\n\nWARNING: numba couldn't be imported so this will run slower\n\n")
+    # construct a trivial decorator for njit 
+    def njit(foo):
+        return foo
+
+BatsProps = namedtuple('BATSRUSProperties',['nDim','nI','nJ','nK', 
+    'xGlobalMin','yGlobalMin','zGlobalMin','xGlobalMax','yGlobalMax','zGlobalMax',
+    'nInfo','nNode','iRatio_D','nRoot_D'])
+
+@njit
 def F2P(fortran_index):
     return fortran_index - 1
 
+@njit
 def P2F(python_index):
     return python_index + 1
 
 
 def read_info_file(filetag):
-    cache = {'filetag' : filetag}
+    info = {'filetag' : filetag}
     with open(filetag+'.info','r') as f:
         for line in f.readlines():
             if line == '\n' : continue
             if line[0] == '#': continue
             splt = line.split()
             if len(splt) == 2:
-                cache[splt[1]] = splt[0]
-    return cache
+                info[splt[1]] = splt[0]
+    return info
 
 
 def read_tree_file(filetag):
     # first read info file
-    cache = read_info_file(filetag)
-    cache['nDim'] = int(cache['nDim'])
-    cache['nI'] = int(cache['BlockSize1'])
-    cache['nJ'] = int(cache['BlockSize2'])
-    cache['nK'] = int(cache['BlockSize3'])
+    info = read_info_file(filetag)
 
-    ## Loading AMR tree
-
+    ## load tree file
     ff = sio.FortranFile(filetag+".tree", 'r')
-    if True:#!!!!!!!!
-        nDim, nInfo, nNode = ff.read_reals(dtype=np.int32)
-        iRatio_D = ff.read_reals(dtype=np.int32) # Array of refinement ratios
-        nRoot_D = ff.read_reals(dtype=np.int32) # The number of root nodes in all dimension
-        iTree_IA = ff.read_reals(dtype=np.int32).reshape((nInfo,nNode), order='F')
-    else:
-        nDim, nInfo, nNode = ff.read_ints(dtype='i4')
-        iRatio_D = ff.read_ints(dtype='i4') # Array of refinement ratios
-        nRoot_D = ff.read_ints(dtype='i4') # The number of root nodes in all dimension
-        iTree_IA = ff.read_ints(dtype='i4').reshape((nInfo,nNode), order='fortran')
+    nDim, nInfo, nNode = ff.read_ints(dtype=np.int32)
+    iRatio_D = ff.read_ints(dtype=np.int32) # Array of refinement ratios
+    nRoot_D = ff.read_ints(dtype=np.int32) # The number of root nodes in all dimension
+    iTree_IA = ff.read_ints(dtype=np.int32).reshape((nInfo,nNode), order='F')
+
+    pr = BatsProps( nInfo    = nInfo                      ,
+                    nNode    = nNode                      ,
+                    iRatio_D = iRatio_D                   ,
+                    nRoot_D  = nRoot_D                    ,
+                    nDim = int(info['nDim'])              ,
+                    nI = int(info['BlockSize1'])          ,
+                    nJ = int(info['BlockSize2'])          ,
+                    nK = int(info['BlockSize3'])          ,
+                    xGlobalMin = float(info['Coord1Min']) ,
+                    yGlobalMin = float(info['Coord2Min']) ,
+                    zGlobalMin = float(info['Coord3Min']) ,
+                    xGlobalMax = float(info['Coord1Max']) ,
+                    yGlobalMax = float(info['Coord2Max']) ,
+                    zGlobalMax = float(info['Coord3Max'])       )
 
     ########################### check_thing_work #######################
-    assert(cache['nDim'] == nDim)
+    assert(pr.nDim == nDim)
     assert(iTree_IA.shape[1] == nNode)
     # Maximum number of ghost cells set by Config.pl script.
     # Valid values are 0,1,2,3,4,5
     nG = 2
     # Refinement ratios in the 3 dimensions. Either 1 or 2.
     # The values are set by the Config.pl script.
-    iRatio, jRatio, kRatio = min(2, cache['nI']), min(2, cache['nJ']), min(2, cache['nK'])
+    iRatio, jRatio, kRatio = min(2, pr.nI), min(2, pr.nJ), min(2, pr.nK)
     # Number of dimensions in which grid adaptation is done
     nDimAmr = iRatio + jRatio + kRatio - 3
     assert(nDimAmr == nDim)
@@ -64,67 +83,63 @@ def read_tree_file(filetag):
     assert(np.all(iRatio_D == np.array([iRatio, jRatio, kRatio])))
     ####################################################################
 
-    cache['nInfo']    = nInfo
-    cache['nNode']    = nNode
-    cache['iRatio_D'] = iRatio_D
-    cache['nRoot_D']  = nRoot_D
-    cache['iTree_IA'] = iTree_IA
-
-    cache['xGlobalMin'] = float(cache['Coord1Min'])
-    cache['yGlobalMin'] = float(cache['Coord2Min'])
-    cache['zGlobalMin'] = float(cache['Coord3Min'])
-    cache['xGlobalMax'] = float(cache['Coord1Max'])
-    cache['yGlobalMax'] = float(cache['Coord2Max'])
-    cache['zGlobalMax'] = float(cache['Coord3Max'])
-
-    return cache
+    return iTree_IA, pr
 
 
 def read_out_file(filetag):
     nDim = 3
     ff = sio.FortranFile(filetag+".out", 'r')
 
-    header = str(ff.read_ints(dtype=np.uint8).tobytes())[2:-1] # slice changes b'*' into *
+    header = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
     nStep, Time, nDimOut, nParam, nVar = ff.read_ints(dtype=np.int32)
     n_D = ff.read_ints(dtype=np.int32)
-    tmp=str(ff.read_ints(dtype=np.uint8).tobytes())
-    print(tmp)
-    variables = str(ff.read_ints(dtype=np.uint8).tobytes())[2:-1] # slice changes b'*' into *
-    variables = variables.strip().split(' ')
+    whatISthis=ff.read_ints(dtype=np.uint8).tobytes()
+    try:
+        print(whatISthis.decode('UTF-8'))
+    except:
+        pass
+    allvariables = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
+    allvariables = allvariables.strip().split(' ')
+    npts = n_D[0]; assert(n_D[1]==1 and n_D[2]==1 and n_D.size==3)
 
-    XYZ = ff.read_reals(dtype=np.float32)
-    XYZ = XYZ.reshape(3,XYZ.size//3)
+    #x,y,and z  are stored as one larger array in file. All others are stored seperately
+    #as a results xyz count only once towards nVar.
+    data_arr = np.empty((nVar+2, npts), dtype=np.float32); data_arr[:,:]=np.nan; assert(nVar+2==nVarNeeded)
+    data_arr[0:3, :] = ff.read_reals(dtype=np.float32).reshape(3, npts) 
+    for i in range(3, nVar+2):
+        A = ff.read_reals(dtype=np.float32)
+        data_arr[i, :] = A
 
-    data = {'x' : XYZ[0,:],
-            'y' : XYZ[1,:],
-            'z' : XYZ[2,:] }
+    status = ff.read_reals(dtype=np.float32) #? whatever this means
 
-    i = 3
-    while(True):
-        try:
-            A = ff.read_reals(dtype=np.float32)
-            data[variables[i]] = A
-        except sio._fortran.FortranEOFError:
-            break
-        i = i + 1
+    # check to make sure ff is at the end of the file
+    #end = ff.read_reals(dtype=np.float32)
+    #print(end)
+    #exit()
+    try:
+        ff.read_reals(dtype=np.float32)
+        assert(False)
+    except TypeError: # nessesary for python 2 compatibility, since it seems that there is no sio._fortran.FortranEOFError without it
+        pass
+    except sio._fortran.FortranEOFError:
+        pass
 
     expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
     assert(expectedheader == header.strip())
-    return data
+
+    return data_arr, tuple(allvariables[:nVar+2])
 
 # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
-def get_tree_position(iNode, cache, returnall=False):
+@njit
+def get_tree_position(iNode, iTree_IA, pr):
     '''
     Calculate normalized position of the edges of node iNode.
     Zero is at the minimum boundary of the grid, one is at the max boundary
+    the tree is described by iTree_IA and pr
     '''
-    iTree_IA = cache['iTree_IA']
-    nRoot_D  = cache['nRoot_D']
-    iRatio_D = cache['iRatio_D']
-
     iLevel = iTree_IA[F2P(Level_), F2P(iNode)]
 
-    MaxIndex_D = ((2**(iLevel)-1)*(iRatio_D-1) + 1)*nRoot_D
+    MaxIndex_D = ((2**(iLevel)-1)*(pr.iRatio_D-1) + 1)*pr.nRoot_D
     # Note: in the common case of iRatio_D=[2,2,2] and nRoot_D=[1,1,1]:
     # MaxIndex_D[all] = ((2**(iLevel)-1)*(2-1) + 1)*1
     #                 = 2**iLevel
@@ -138,26 +153,23 @@ def get_tree_position(iNode, cache, returnall=False):
     PositionMin_D = (block_coords - 1.0)/MaxIndex_D
     PositionMax_D = (block_coords + 0.0)/MaxIndex_D
 
-    if returnall:
-        return PositionMin_D, PositionMax_D, MaxIndex_D, BlockCoord_D
-    else:
-        return PositionMin_D, PositionMax_D # what was returned in original
+    return PositionMin_D, PositionMax_D
 
+@njit
+def get_physical_dimensions(iNode, iTree_IA, pr, returnCenters=False):
+    x_start = pr.xGlobalMin
+    y_start = pr.yGlobalMin
+    z_start = pr.zGlobalMin
+    x_range = pr.xGlobalMax - pr.xGlobalMin
+    y_range = pr.yGlobalMax - pr.yGlobalMin
+    z_range = pr.zGlobalMax - pr.zGlobalMin
 
-def get_physical_dimensions(iNode, cache, returnCenters=False):
-    x_start = cache['xGlobalMin']
-    y_start = cache['yGlobalMin']
-    z_start = cache['zGlobalMin']
-    x_range = cache['xGlobalMax'] - cache['xGlobalMin']
-    y_range = cache['yGlobalMax'] - cache['yGlobalMin']
-    z_range = cache['zGlobalMax'] - cache['zGlobalMin']
-
-    iLevel = cache['iTree_IA'][F2P(Level_), F2P(iNode)]
-    assert(cache['nI'] == cache['nJ'] == cache['nK'])
+    iLevel = iTree_IA[F2P(Level_), F2P(iNode)]
+    assert(pr.nI == pr.nJ == pr.nK)
     assert(x_range == y_range == z_range)
-    gridspacing = (x_range/cache['nI'])*0.5**iLevel
+    gridspacing = (x_range/pr.nI)*0.5**iLevel
 
-    PositionMin_D, PositionMax_D = get_tree_position(iNode, cache)
+    PositionMin_D, PositionMax_D = get_tree_position(iNode, iTree_IA, pr)
     xmin = x_range*(PositionMin_D[0]) + x_start
     ymin = y_range*(PositionMin_D[1]) + y_start
     zmin = z_range*(PositionMin_D[2]) + z_start
@@ -165,26 +177,23 @@ def get_physical_dimensions(iNode, cache, returnCenters=False):
     ymax = y_range*(PositionMax_D[1]) + y_start
     zmax = z_range*(PositionMax_D[2]) + z_start
 
-    xlims = (xmin+gridspacing/2., xmax-gridspacing/2.)
-    ylims = (ymin+gridspacing/2., ymax-gridspacing/2.)
-    zlims = (zmin+gridspacing/2., zmax-gridspacing/2.)
-
-    xminmax = (xmin, xmax)
-    yminmax = (ymin, ymax)
-    zminmax = (zmin, zmax)
-
     if returnCenters:
+        xlims = (xmin+gridspacing/2., xmax-gridspacing/2.)
+        ylims = (ymin+gridspacing/2., ymax-gridspacing/2.)
+        zlims = (zmin+gridspacing/2., zmax-gridspacing/2.)
         return xlims, ylims, zlims, gridspacing
     else:
+        xminmax = (xmin, xmax)
+        yminmax = (ymin, ymax)
+        zminmax = (zmin, zmax)
         return xminmax, yminmax, zminmax, gridspacing
 
 # supposed to reproduce SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 975, but differently
-def find_tree_node(point, cache):
-    iTree_IA = cache['iTree_IA']
-
-    xin = cache['xGlobalMin'] <= point[0] <= cache['xGlobalMax']
-    yin = cache['yGlobalMin'] <= point[1] <= cache['yGlobalMax']
-    zin = cache['zGlobalMin'] <= point[2] <= cache['zGlobalMax']
+@njit
+def find_tree_node(point, iTree_IA, pr):
+    xin = pr.xGlobalMin <= point[0] <= pr.xGlobalMax
+    yin = pr.yGlobalMin <= point[1] <= pr.yGlobalMax
+    zin = pr.zGlobalMin <= point[2] <= pr.zGlobalMax
 
     if not (xin and yin and zin): 
         raise RuntimeError ('point out of simulation volume')
@@ -196,7 +205,8 @@ def find_tree_node(point, cache):
 
         for j in range(8):
             child = iTree_IA[F2P(Child1_+j), F2P(iNode)]
-            xminmax, yminmax, zminmax, gridspacing = get_physical_dimensions(child, cache, returnCenters=False)
+            xminmax, yminmax, zminmax, gridspacing = get_physical_dimensions(child, iTree_IA, pr,
+                                                                            returnCenters=False)
 
             xin = xminmax[0] <= point[0] <= xminmax[1]
             yin = yminmax[0] <= point[1] <= yminmax[1]
@@ -208,34 +218,8 @@ def find_tree_node(point, cache):
 
     return iNode
 
-
-def read_all(filetag):
-    def Reorder(arr1, arr2):
-        ''' arr1 and arr2 are (N,3) arrays of for N  3d-points 
-            if arr1 and arr2 contain the same points, but in different
-            order, returns array of indices 'ind' such that
-            arr1[ind,:] == arr2
-        '''
-        arr1 = np.array(arr1); arr2 = np.array(arr2)
-        assert(len(arr1.shape) == len(arr2.shape) == 2)
-        if arr1.shape != arr2.shape: return False
-
-        sort1 = np.lexsort((arr1[:,0],arr1[:,1],arr1[:,2]))  
-        sort2 = np.lexsort((arr2[:,0],arr2[:,1],arr2[:,2]))
-        #undo1 = np.argsort(sort1)
-        undo2 = np.argsort(sort2)
-
-        if not np.all(arr2 == (arr1[sort1[undo2],:])):
-            raise RuntimeError ('arrays inputed arent reordering of each other')
-        return sort1[undo2]
-
-    import spacepy.pybats.bats as bats
-    data = bats.Bats2d(filetag + ".out")
-    expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
-    assert(expectedheader == data.meta['header'].strip())
-
-    cache = read_tree_file(filetag)
-
+@njit
+def map_nodes_to_data(data_arr, iTree_IA, pr):
     # in what follows:
     #  the P in iNodeP and iBlockP stands for python like indexing (as oposed to fortran)
     #  
@@ -245,90 +229,44 @@ def read_all(filetag):
     #  iBlockP indexes all the blocks used, from 0 to nBlock-1.
     #  There is one for each node with a status of used. 
     #  Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
-    points = np.column_stack([data['x'],data['y'],data['z']])
-    npts = points.shape[0]
-    nI, nJ, nK = cache['nI'], cache['nJ'], cache['nK']
+    npts = data_arr.shape[1]
+    nI, nJ, nK = pr.nI, pr.nJ, pr.nK
     nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
-    nNode = cache['nNode']
 
-    iBlockP = 0
-    block2node = -np.ones((nBlock,), dtype=int)#!!
-    node2block = -np.ones((nNode,), dtype=int)#!!
-    reconstructed_points = np.nan*np.empty((npts,3), dtype=np.float32)
-    for iNodeP in range(nNode):
-        if cache['iTree_IA'][F2P(Status_), iNodeP] == Used_:
-            block2node[iBlockP] = iNodeP
-            node2block[iNodeP] = iBlockP
-            xlims, ylims, zlims, gridspacing = get_physical_dimensions(P2F(iNodeP), cache, returnCenters=True)
-            assert(xlims[1]-xlims[0] == (nI-1)*gridspacing)
-            assert(ylims[1]-ylims[0] == (nJ-1)*gridspacing)
-            assert(zlims[1]-zlims[0] == (nK-1)*gridspacing)
-
-            grid = np.mgrid[xlims[0]:xlims[1]+gridspacing:gridspacing, 
-                            ylims[0]:ylims[1]+gridspacing:gridspacing,
-                            zlims[0]:zlims[1]+gridspacing:gridspacing ]
-            grid = np.array(grid.reshape((3,nI*nJ*nK)).transpose(), order='C')
-
-            #### equivalent too ####
-            #grid = np.empty((nI,nJ,nK,3))
-            #for i in range(nI):
-            #    for j in range(nJ):
-            #        for k in range(nK):
-            #            grid[i,j,k, 0] = xlims[0]+gridspacing*i
-            #            grid[i,j,k, 1] = ylims[0]+gridspacing*j
-            #            grid[i,j,k, 2] = zlims[0]+gridspacing*k
-            #grid = grid.reshape((nI*nJ*nK,3))
-            ############
-
-            start = iBlockP*nI*nJ*nK
-            end = (iBlockP+1)*nI*nJ*nK
-            reconstructed_points[start:end,:] = grid
-
-            iBlockP += 1
-
-    ind = Reorder(points, reconstructed_points)
-
-    DataArray = np.empty((nVarNeeded, nBlock, nI, nJ, nK), dtype=np.float32); DataArray[:,:,:,:,:] = np.nan
-    for index in range(nVarNeeded):
-        DataArray[index,:,:,:,:] = data[index2str[index]][ind].reshape((nBlock, nI, nJ, nK))
-    del data, ind
-
-    cache['DataArray'] = DataArray
-    cache['block2node'] = block2node
-    cache['node2block'] = node2block
-    cache['nBlock'] = nBlock
-    return cache
-
-
-def read_all2(filetag):
-    print('check 1')
-    cache = read_tree_file(filetag)
-    data = read_out_file(filetag)
-    points = np.column_stack([data['x'],data['y'],data['z']])
-    npts = points.shape[0]
-    nI, nJ, nK = cache['nI'], cache['nJ'], cache['nK']
-    nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
-    nNode = cache['nNode']
-    print('check 2')
-
-    block2node = -np.ones((nBlock,), dtype=int)#!!
-    node2block = -np.ones((nNode,), dtype=int)#!!
+    block2node = -np.ones((nBlock,), dtype=np.int64)
+    node2block = -np.ones((pr.nNode,), dtype=np.int64)
     for iBlockP in range(nBlock):
-        iNodeP = F2P( find_tree_node(points[iBlockP*8**3, :], cache) )
+        iNodeP = F2P( find_tree_node(data_arr[0:3, iBlockP*8**3], iTree_IA, pr) )
         block2node[iBlockP] = iNodeP
         node2block[iNodeP] = iBlockP
-    print('check 3')
-    DataArray = np.empty((nVarNeeded, nBlock, nI, nJ, nK), dtype=np.float32); DataArray[:,:,:,:,:] = np.nan
-    for varind in range(nVarNeeded):
-        DataArray[varind,:,:,:,:] = data[index2str[varind]].reshape((nBlock, nI, nJ, nK))
-    del data
-    print('check 4')
+    return block2node, node2block
+
+
+def read_all(filetag):
+    iTree_IA, pr = read_tree_file(filetag)
+    data_arr, variables = read_out_file(filetag)
+    block2node, node2block = map_nodes_to_data(data_arr, iTree_IA, pr)
+
+    assert(not np.isfortran(data_arr))
+    DataArray = data_arr.reshape((data_arr.shape[0], block2node.size, pr.nI, pr.nJ, pr.nK))
+    assert(not np.isfortran(DataArray))
+    DataArray = DataArray.transpose((0,1,4,3,2)) # probably duplicates in memory, but without we'd need by (nVar,nBlock, nK,nJ,nI) 
+    assert(not np.isfortran(DataArray))
+    # would be better to have DataArray Fortran ordered with shape (nI,nJ,nK,nBlock,nVar), cause then we wouldnt need to rewrite
+    # this isnt compatible at the moment though
+
+    cache = {}
     cache['DataArray'] = DataArray
+    cache['iTree_IA'] = iTree_IA
     cache['block2node'] = block2node
     cache['node2block'] = node2block
-    cache['nBlock'] = nBlock
+    cache['nBlock'] = DataArray.shape[1]
+    cache['nI'] = DataArray.shape[2]
+    cache['nJ'] = DataArray.shape[3]
+    cache['nK'] = DataArray.shape[4]
+    cache['filetag'] = filetag
+    cache['pr'] = pr
     return cache
-
 
 
 def find_index(filetag, point, cache=None, debug=False):
@@ -340,7 +278,7 @@ def find_index(filetag, point, cache=None, debug=False):
     def getvar(_var, iNode, i,j,k):
         return cache['DataArray'][str2index[_var],:,:,:,:][cache['node2block'][F2P(iNode)],i,j,k]
 
-    iNode = find_tree_node(point, cache)
+    iNode = find_tree_node(point, cache['iTree_IA'], cache['pr'])
 
     # get the gridspacing in x,y,z
     gridspacingX = getvar('x', iNode, 1,0,0) - getvar('x', iNode, 0,0,0)
@@ -371,12 +309,6 @@ def interpolate(filetag, point, var='p', cache=None, debug=False):
             string for the swmf variable name. Default: var='p'
     returns:
     """
-    #TODO: vectorize find_tree_node for points (N,3) (possibly with jitFORTRAN).
-    #      then get rid of get_physical_dimensions() call in this function
-    #      gridpacing and minmax can be found direcly from block_data.
-    #      then maybe this function can be vectorized as well for points (N,3)
-    # this function should maybe go in different file also
-
     if cache is None:
         cache = read_all(filetag)
     else:
@@ -385,7 +317,7 @@ def interpolate(filetag, point, var='p', cache=None, debug=False):
     def getvar(_var, iNode, i,j,k):
         return cache['DataArray'][str2index[_var],:,:,:,:][cache['node2block'][F2P(iNode)],i,j,k]
 
-    iNode = find_tree_node(point, cache)
+    iNode = find_tree_node(point, cache['iTree_IA'], cache['pr'])
 
     # get the gridspacing in x,y,z
     gridspacingX = getvar('x', iNode, 1,0,0) - getvar('x', iNode, 0,0,0)
@@ -535,9 +467,9 @@ def swmf2vtk(filetag, use_ascii=False, cache=None):
         ymax = y_blk[iBlockP, 0   ,nJ-1,0   ] + gridspacing/2.
         zmax = z_blk[iBlockP, 0   ,0   ,nK-1] + gridspacing/2.
 
-        grid = np.mgrid[xmin:xmax+gridspacing:gridspacing, 
-                        ymin:ymax+gridspacing:gridspacing,
-                        zmin:zmax+gridspacing:gridspacing ]
+        grid = np.mgrid[float(xmin):float(xmax+gridspacing):float(gridspacing), 
+                        float(ymin):float(ymax+gridspacing):float(gridspacing),
+                        float(zmin):float(zmax+gridspacing):float(gridspacing) ]
         grid = np.array(grid.reshape((3,(nI+1)*(nJ+1)*(nK+1))).transpose(), order='C')
 
         start = iBlockP*(nI+1)*(nJ+1)*(nK+1)
@@ -603,19 +535,19 @@ def model_api(filetag, cache=None):
         cache = read_all(filetag)
     else:
         assert(cache['filetag'] == filetag)
-
     #from magnetosphere import MagnetosphereState
     #MagnetosphereState(run_name=, time_Tstring=, interpolator=, data_array=, variables=, units=)
 
 
 
 if __name__ == '__main__':
-    #point = np.array([-146.,  -14.,  -14.])
-    #ftag = "/home/gary/temp/3d__var_3_e20031120-070000-000"
-    #cac = read_all(ftag)
-    #print(interpolate(ftag,point,var='p', cache=cac))
-    #indx = find_index(ftag,point, cache=cac)
-    #print(indx)
-    #print(cac['DataArray'][(14,*indx)])
+    point = np.array([-146.,  -14.,  -14.])
+    ftag = "/home/gary/temp/3d__var_3_e20031120-070000-000"
+    cac = read_all(ftag)
+    print(interpolate(ftag,point,var='p', cache=cac))
+    indx = find_index(ftag,point, cache=cac)
+    print(indx)
+    print(cac['DataArray'][(14,)+indx]) # (14,*indx) syntax only works python 3
     #read_all('/tmp/3d__var_dipole')
-    cache = read_all2('/tmp/3d__var_2_e20190902-041000-000')
+    #read_all('/tmp/3d__var_2_e20190902-041000-000')
+    #swmf2vtk('/tmp/3d__var_2_e20190902-041000-000')

@@ -3,10 +3,6 @@
 reads the .out, .tree, and .info files for the data from the
 (BATSRUS) magnetosphere component of an SWMF run.
 
-note, currently uses spacepy to read the .out file,
-and scipy.io.FortranFiles for the .tree file
-but eventually plans to do so without a spacepy dependency.
-
 In principle works for python 2 and 3
 
 # Install
@@ -25,15 +21,7 @@ pip install --editable .
 # Tested
 
 works:
-spacepy 0.2.2
 Python 3.7.9 \[GCC 7.3.0\]
-
-doesn't:
-spacepy 0.2.2
-Python 3.7.9 \[GCC 7.3.0\]
-
-works:
-spacepy 0.2.1
 Python 2.7.18 \[GCC 7.3.0\]
 
 # Overview:
@@ -60,10 +48,10 @@ Bats-r-us outputs consists of files: 3d_*.out , 3d_*.tree , 3d_*.info
 3d_*.info:
 > text file containing nI,nJ,nK, and other meta data.
 
-This package has 5 functions that one would typically use externally,
+This package has 4 functions that one would typically use externally,
 all located in the 'read_swmf_files.py' file.
 The rest are is mostly meant for internal use.
-The 5 functions are:
+The 4 functions are:
  - read_all(filetag)
     - takes as input the string for 3d_*  without the extentions (including full path if needed).
     - returns a dictionary (refered to internally as "cache")
@@ -85,11 +73,6 @@ The 5 functions are:
           iff iNode is a valid leaf.
           The array is indexed by iNodeP, and the entries are the corresponding iBlockP
           if iNode is a valid leaf, and -1 otherwise.
-
- - find_tree_node(point, cache)
-    * Inputed: a (3,) array with the x,y,z of a point in space, and the cache of a 3d_*
-    * returns the iNode index for the leaf which contains point
-    * Note that point need not be a gridpoint, any floats within the simulation model will do.
 
  - find_index(filetag, point, cache=None, debug=False)
     * Inputed: a (3,) array with the x,y,z of a point in space, a filetag 3d_* and optionally its cache
