@@ -172,3 +172,19 @@ str2index = {
     'jR_fractional_error':  _jR_fractional_error ,
     'gridspacing'        :  _gridspacing         ,
 }
+
+try:
+    from numba import types
+    from numba.typed import Dict
+
+    str2index_typed = Dict.empty(
+        key_type=types.unicode_type,
+        value_type=types.int32,
+        )
+
+    for key, val in str2index.items():
+        str2index_typed[key] = val
+
+except:
+    print('WARNING could not make numba dictionary')
+    str2index_typed = str2index

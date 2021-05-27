@@ -3,7 +3,7 @@ import numpy as np
 import scipy.io as sio
 from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
 from swmf_file_reader.vtk_export_copy import vtk_export
-from swmf_file_reader.named_var_indexes import nVarNeeded, index2str, str2index, _x,_y,_z,_bx,_by,_bz
+from swmf_file_reader.named_var_indexes import nVarNeeded, index2str, str2index,str2index_typed, _x,_y,_z,_bx,_by,_bz
 
 try:
     from numba import njit
@@ -248,7 +248,7 @@ def read_all(filetag):
     block2node, node2block = map_nodes_to_data(data_arr, iTree_IA, pr)
 
     assert(not np.isfortran(data_arr))
-    DataArray = data_arr.reshape((data_arr.shape[0], block2node.size, pr.nI, pr.nJ, pr.nK))
+    DataArray = data_arr.reshape((data_arr.shape[0], block2node.size, pr.nK, pr.nJ, pr.nI))
     assert(not np.isfortran(DataArray))
     DataArray = DataArray.transpose((0,1,4,3,2)) # probably duplicates in memory, but without we'd need by (nVar,nBlock, nK,nJ,nI) 
     assert(not np.isfortran(DataArray))
@@ -268,8 +268,8 @@ def read_all(filetag):
     cache['pr'] = pr
     return cache
 
-
-def find_index(filetag, point, cache=None, debug=False):
+def find_index(filetag, point, cache=None, debug=False): # depreciated
+    print('find_index DEPRECIATED')
     if cache is None:
         cache = read_all(filetag)
     else:
@@ -296,7 +296,99 @@ def find_index(filetag, point, cache=None, debug=False):
         return None
 
 
-def interpolate(filetag, point, var='p', cache=None, debug=False):
+@njit
+def interpolate_jit(point, iVar, DA, iTree_IA, node2block, pr):
+    _x,_y,_z = 0,1,2
+    nI, nJ, nK = pr.nI, pr.nJ, pr.nK
+
+    iNode = find_tree_node(point, iTree_IA, pr)
+    iBlockP = node2block[F2P(iNode)]
+
+    gridspacingX = DA[_x,iBlockP, 1,0,0] - DA[_x,iBlockP, 0,0,0]
+    gridspacingY = DA[_y,iBlockP, 0,1,0] - DA[_y,iBlockP, 0,0,0]
+    gridspacingZ = DA[_z,iBlockP, 0,0,1] - DA[_z,iBlockP, 0,0,0]
+
+    # i0 is s.t. the highest index s.t. the x coordinate of the 
+    #  corresponding cell block_data[iNode,i0,:,:]  is still less than point[0]
+    i0 = (point[0] - DA[_x,iBlockP, 0, 0, 0])/gridspacingX
+    j0 = (point[1] - DA[_y,iBlockP, 0, 0, 0])/gridspacingY
+    k0 = (point[2] - DA[_z,iBlockP, 0, 0, 0])/gridspacingZ
+    #if i0.is_integer() and j0.is_integer() and k0.is_integer(): # doesnt work in numba
+    #    is_native = True
+    #    print( (iBlockP,int(i0),int(j0),int(k0)) )# (iBlockP,i,j,k)
+    #    i0 = int(i0)
+    #    j0 = int(j0)
+    #    k0 = int(k0)
+    i0 = int(np.floor(i0))
+    j0 = int(np.floor(j0))
+    k0 = int(np.floor(k0))
+
+    # i1 = i0+1 is the lowest index s.t. the x coordinate of the 
+    #  corresponding cell block_data[iNode,i1,:,:]  is still greater than point[0]
+    # together, i0 and i1 form the upper and lower bounds for a linear interpolation in x
+    # likewise for j0,j1,y  and k0,k1,z
+
+    #TODO implement better interpolation at ends of block.
+    # This method effectively makes it nearest neighbor at the ends
+    if i0 == -1:
+        i0 = 0
+        i1 = 0
+    elif i0 == nI-1:
+        i1 = nI-1
+    else:
+        i1 = i0 + 1
+
+    if j0 == -1:
+        j0 = 0
+        j1 = 0
+    elif j0 == nJ-1:
+        j1 = nJ-1
+    else:
+        j1 = j0 + 1
+
+    if k0 == -1:
+        k0 = 0
+        k1 = 0
+    elif k0 == nK-1:
+        k1 = nK-1
+    else:
+        k1 = k0 + 1
+
+    # all together i0,i1,j0,ect... form a cube of side length "gridpacing" to do trililear interpolation within
+    # define xd as the distance along x of point within that cube, in units of "gridspacing"
+    xd = (point[0] - DA[_x,iBlockP, i0, 0 , 0 ])/gridspacingX
+    yd = (point[1] - DA[_y,iBlockP, 0 , j0, 0 ])/gridspacingY
+    zd = (point[2] - DA[_z,iBlockP, 0 , 0 , k0])/gridspacingZ
+
+    #https://en.wikipedia.org/wiki/Trilinear_interpolation
+    c000 = DA[iVar,iBlockP,  i0, j0, k0]
+    c001 = DA[iVar,iBlockP,  i0, j0, k1]
+    c010 = DA[iVar,iBlockP,  i0, j1, k0]
+    c100 = DA[iVar,iBlockP,  i1, j0, k0]
+    c011 = DA[iVar,iBlockP,  i0, j1, k1]
+    c110 = DA[iVar,iBlockP,  i1, j1, k0]
+    c101 = DA[iVar,iBlockP,  i1, j0, k1]
+    c111 = DA[iVar,iBlockP,  i1, j1, k1]
+
+    c00 = c000*(1.-xd) + c100*xd
+    c01 = c001*(1.-xd) + c101*xd
+    c10 = c010*(1.-xd) + c110*xd
+    c11 = c011*(1.-xd) + c111*xd
+
+    c0 = c00*(1.-yd) + c10*yd
+    c1 = c01*(1.-yd) + c11*yd
+
+    c = c0*(1.-zd) + c1*zd
+    return c
+
+@njit
+def interpolate_vectorized(points, iVar, DA, iTree_IA, node2block, pr):
+    ret = np.empty(points.shape[0], dtype=np.float32)
+    for i in range(points.shape[0]):
+        ret[i] = interpolate_jit(points[i,:], iVar, DA, iTree_IA, node2block, pr)
+    return ret
+
+def interpolate(filetag, points, var='p', cache=None):
     """
     arguments:
         filetag:
@@ -311,103 +403,17 @@ def interpolate(filetag, point, var='p', cache=None, debug=False):
     """
     if cache is None:
         cache = read_all(filetag)
-    else:
+    elif filetag is not None:
         assert(cache['filetag'] == filetag)
 
-    def getvar(_var, iNode, i,j,k):
-        return cache['DataArray'][str2index[_var],:,:,:,:][cache['node2block'][F2P(iNode)],i,j,k]
-
-    iNode = find_tree_node(point, cache['iTree_IA'], cache['pr'])
-
-    # get the gridspacing in x,y,z
-    gridspacingX = getvar('x', iNode, 1,0,0) - getvar('x', iNode, 0,0,0)
-    gridspacingY = getvar('y', iNode, 0,1,0) - getvar('y', iNode, 0,0,0)
-    gridspacingZ = getvar('z', iNode, 0,0,1) - getvar('z', iNode, 0,0,0)
-
-    # i0 is s.t. the highest index s.t. the x coordinate of the 
-    #  corresponding cell block_data[iNode,i0,:,:]  is still less than point[0]
-    i0 = int(np.floor( (point[0] - getvar('x', iNode, 0, 0, 0))/gridspacingX ))
-    j0 = int(np.floor( (point[1] - getvar('y', iNode, 0, 0, 0))/gridspacingY ))
-    k0 = int(np.floor( (point[2] - getvar('z', iNode, 0, 0, 0))/gridspacingZ ))
-
-    #i1 = i0+1 is the lowest index s.t. the x coordinate of the 
-    #  corresponding cell block_data[iNode,i1,:,:]  is still greater than point[0]
-
-    # together, i0 and i1 form the upper and lower bounds for a linear interpolation in x
-    # likewise for j0,j1,y  and k0,k1,z
-
-    #TODO implement better interpolation at ends of block.
-    # This method effectively makes it nearest neighbor at the ends
-    if i0 == -1:
-        i0 = 0
-        i1 = 0
-        if debug: print('edge case')
-    elif i0 == cache['nI']-1:
-        i1 = cache['nI']-1
-        if debug: print('edge case')
-    else:
-        i1 = i0 + 1
-
-    if j0 == -1:
-        j0 = 0
-        j1 = 0
-        if debug: print('edge case')
-    elif j0 == cache['nJ']-1:
-        j1 = cache['nJ']-1
-        if debug: print('edge case')
-    else:
-        j1 = j0 + 1
-
-    if k0 == -1:
-        k0 = 0
-        k1 = 0
-        if debug: print('edge case')
-    elif k0 == cache['nK']-1:
-        k1 = cache['nK']-1
-        if debug: print('edge case')
-    else:
-        k1 = k0 + 1
-
-    # all together i0,i1,j0,ect... form a cube of side length "gridpacing" to do trililear interpolation within
-    # define xd as the distance along x of point within that cube, in units of "gridspacing"
-    xd = (point[0] - getvar('x', iNode, i0, 0 , 0 ) )/gridspacingX
-    yd = (point[1] - getvar('y', iNode, 0 , j0, 0 ) )/gridspacingY
-    zd = (point[2] - getvar('z', iNode, 0 , 0 , k0) )/gridspacingZ
-
-    if debug: print(xd,yd,zd)
-    if debug: print(getvar('x', iNode,  i0, j0, k0))
-    if debug: print(getvar('y', iNode,  i0, j0, k0))
-    if debug: print(getvar('z', iNode,  i0, j0, k0))
-    if debug: print((iNode, cache['node2block'][F2P(iNode)], i0, j0, k0))
-
-
-    #https://en.wikipedia.org/wiki/Trilinear_interpolation
-    c000 = getvar(var, iNode,  i0, j0, k0)
-    c001 = getvar(var, iNode,  i0, j0, k1)
-    c010 = getvar(var, iNode,  i0, j1, k0)
-    c100 = getvar(var, iNode,  i1, j0, k0)
-    c011 = getvar(var, iNode,  i0, j1, k1)
-    c110 = getvar(var, iNode,  i1, j1, k0)
-    c101 = getvar(var, iNode,  i1, j0, k1)
-    c111 = getvar(var, iNode,  i1, j1, k1)
-    if debug: print(c000)
-    if debug: print(c001,c010,c100,c100,c011,c110,c101,c111)
-
-    c00 = c000*(1.-xd) + c100*xd
-    c01 = c001*(1.-xd) + c101*xd
-    c10 = c010*(1.-xd) + c110*xd
-    c11 = c011*(1.-xd) + c111*xd
-
-    c0 = c00*(1.-yd) + c10*yd
-    c1 = c01*(1.-yd) + c11*yd
-
-    c = c0*(1.-zd) + c1*zd
-    if debug: print(c)
-    return c
+    if len(points.shape) == 1:
+        return    interpolate_jit(points, str2index[var], cache['DataArray'], cache['iTree_IA'], cache['node2block'], cache['pr'])
+    return interpolate_vectorized(points, str2index[var], cache['DataArray'], cache['iTree_IA'], cache['node2block'], cache['pr'])
 
 
 def B_dipole(x,y,z):
-    M = np.array([0,0,3.12e+4], dtype=np.float32)#, dtype=np.float32) # "dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
+    DipoleStrength = 3.12e+4 #"dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
+    M = np.array([0,0,DipoleStrength], dtype=np.float32)
 
     #ret = np.empty(X.shape, dtype=np.float32)
     #divr = 1./np.sqrt(X[:,0]**2 + X[:,1]**2 + X[:,2]**2)
@@ -530,24 +536,129 @@ def swmf2vtk(filetag, use_ascii=False, cache=None):
                     ftype=ftype)
 
 
+def swmf2vtk_separate(filetag, epsilon, use_ascii=False, cache=None):
+    if cache is None:
+        if filetag=='/tmp/3d__var_dipole':
+            cache = read_all('/tmp/3d__var_2_e20190902-041000-000')
+        else:
+            cache = read_all(filetag)
+    else:
+        assert(cache['filetag'] == filetag)
+
+    nBlock, nI, nJ, nK = cache['nBlock'], cache['nI'], cache['nJ'], cache['nK']
+
+    cell_data_names = []
+    textures = []
+    cell_data = []
+
+    x_blk = cache['DataArray'][_x,:,:,:,:]
+    y_blk = cache['DataArray'][_y,:,:,:,:]
+    z_blk = cache['DataArray'][_z,:,:,:,:]
+
+    is_selected = np.empty(nBlock, dtype=bool)
+    is_selected[:]=True
+    is_selected = epsilon == x_blk[:, 1,0,0] - x_blk[:, 0,0,0]
+
+    for vv in ['b','j','u','b1']:
+        cell_data_names.append(vv)
+        textures.append('VECTORS')
+        cell_data.append(np.column_stack([cache['DataArray'][str2index[vv+'x'],is_selected,:,:,:].ravel(),
+                                          cache['DataArray'][str2index[vv+'y'],is_selected,:,:,:].ravel(),
+                                          cache['DataArray'][str2index[vv+'z'],is_selected,:,:,:].ravel()])
+                        )
+    for sv in ['rho','p']:
+        cell_data_names.append(sv)
+        textures.append('SCALARS')
+        cell_data.append(cache['DataArray'][str2index[sv],is_selected,:,:,:].ravel())
+
+    nSelected = np.count_nonzero(is_selected)
+
+    all_vertices = []
+    for iBlockP in range(nBlock):
+        if not is_selected[iBlockP]: continue
+        gridspacing = x_blk[iBlockP, 1,0,0] - x_blk[iBlockP, 0,0,0]
+
+        xmin = x_blk[iBlockP, 0,0,0] - gridspacing/2.
+        ymin = y_blk[iBlockP, 0,0,0] - gridspacing/2.
+        zmin = z_blk[iBlockP, 0,0,0] - gridspacing/2.
+
+        xmax = x_blk[iBlockP, nI-1,0   ,0   ] + gridspacing/2.
+        ymax = y_blk[iBlockP, 0   ,nJ-1,0   ] + gridspacing/2.
+        zmax = z_blk[iBlockP, 0   ,0   ,nK-1] + gridspacing/2.
+
+        grid = np.mgrid[float(xmin):float(xmax+gridspacing):float(gridspacing), 
+                        float(ymin):float(ymax+gridspacing):float(gridspacing),
+                        float(zmin):float(zmax+gridspacing):float(gridspacing) ]
+        grid = np.array(grid.reshape((3,(nI+1)*(nJ+1)*(nK+1))).transpose(), order='C')
+
+        start = iBlockP*(nI+1)*(nJ+1)*(nK+1)
+        end = (iBlockP+1)*(nI+1)*(nJ+1)*(nK+1)
+        all_vertices.append(grid)
+    all_vertices = np.vstack(all_vertices)
+
+    unique_vertices, pointTo = np.unique(all_vertices,axis=0,return_inverse=True)
+    assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
+
+    loc_in_block = np.arange((nI+1)*(nJ+1)*(nK+1)).reshape( ((nI+1),(nJ+1),(nK+1)) )
+    cells = []
+
+    startOfBlock = 0
+    for iBlockP in range(nBlock):
+        if not is_selected[iBlockP]: continue
+        for i in range(nI):
+            for j in range(nJ):
+                for k in range(nK):
+                    # use vtk voxel for cells
+                    celltype = 'VOXEL'
+                    cells.append(
+                         (pointTo[startOfBlock+loc_in_block[i  ,j  ,k  ]] ,
+                          pointTo[startOfBlock+loc_in_block[i+1,j  ,k  ]] ,
+                          pointTo[startOfBlock+loc_in_block[i  ,j+1,k  ]] ,
+                          pointTo[startOfBlock+loc_in_block[i+1,j+1,k  ]] ,
+                          pointTo[startOfBlock+loc_in_block[i  ,j  ,k+1]] ,
+                          pointTo[startOfBlock+loc_in_block[i+1,j  ,k+1]] ,
+                          pointTo[startOfBlock+loc_in_block[i  ,j+1,k+1]] ,
+                          pointTo[startOfBlock+loc_in_block[i+1,j+1,k+1]] )
+                        )
+        startOfBlock += (nI+1)*(nJ+1)*(nK+1)
+
+    cells = np.array(cells, dtype=int)
+
+    if use_ascii:
+        ftype='ASCII'
+    else:
+        ftype='BINARY'
+
+    outname = f'{filetag}_eps={epsilon}.vtk'
+    outname = f'./eps={epsilon}.vtk'
+    vtk_export(outname, unique_vertices,
+                    dataset = 'UNSTRUCTURED_GRID',
+                    connectivity = {'CELLS' : {celltype : cells} },
+                    cell_data = cell_data,
+                    texture = textures,
+                    cell_data_name = cell_data_names,
+                    ftype=ftype)
+
+
 def model_api(filetag, cache=None):
     if cache is None:
         cache = read_all(filetag)
     else:
         assert(cache['filetag'] == filetag)
+
     #from magnetosphere import MagnetosphereState
     #MagnetosphereState(run_name=, time_Tstring=, interpolator=, data_array=, variables=, units=)
 
 
-
+# python -c "from swmf_file_reader.read_swmf_files import swmf2vtk_separate; swmf2vtk_separate('',8.)"
 if __name__ == '__main__':
-    point = np.array([-146.,  -14.,  -14.])
+    points = np.array([[-146.,  -14.,  -14.]])
     ftag = "/home/gary/temp/3d__var_3_e20031120-070000-000"
-    cac = read_all(ftag)
-    print(interpolate(ftag,point,var='p', cache=cac))
-    indx = find_index(ftag,point, cache=cac)
-    print(indx)
-    print(cac['DataArray'][(14,)+indx]) # (14,*indx) syntax only works python 3
+    #cac = read_all(ftag)
+    #print(interpolate(ftag,point,var='p', cache=cac))
+    #indx = find_index(ftag,point, cache=cac)
+    #print(indx)
+    #print(cac['DataArray'][(14,)+indx]) # (14,*indx) syntax only works python 3
     #read_all('/tmp/3d__var_dipole')
     #read_all('/tmp/3d__var_2_e20190902-041000-000')
-    #swmf2vtk('/tmp/3d__var_2_e20190902-041000-000')
+    print(interpolate(ftag, points))

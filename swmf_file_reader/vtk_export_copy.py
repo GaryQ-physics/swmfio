@@ -75,7 +75,7 @@ def vtk_export(out_filename, points,
 
     for key in connectivity.keys():
         if key == 'CELLS':
-            celltypes = {#TODO fix whitespace
+            celltypes = {
                             'VERTEX'         : 1 ,
                             'POLY_VERTEX'    : 2 ,
                             'LINE'           : 3 ,
@@ -190,13 +190,16 @@ def vtk_export(out_filename, points,
                 point_data_ELEMENT = point_data[i]
                 texture_ELEMENT = texture[i]
 
-                if texture_ELEMENT == 'SCALARS':
+                if   texture_ELEMENT == 'SCALARS':
                     f.write(b'SCALARS %s float 1\n'%(bytearray(point_data_name_ELEMENT, 'utf-8'))) # number with float???
                     f.write(b'LOOKUP_TABLE default\n')
-                if texture_ELEMENT == 'VECTORS':
+                elif texture_ELEMENT == 'VECTORS':
                     f.write(b'VECTORS %s float\n'%(bytearray(point_data_name_ELEMENT, 'utf-8')))
-                if texture_ELEMENT == 'TEXTURE_COORDINATES':
+                elif texture_ELEMENT == 'TEXTURE_COORDINATES':
                     f.write(b'TEXTURE_COORDINATES %s 2 float\n'%(bytearray(point_data_name_ELEMENT, 'utf-8'))) # http://www.earthmodels.org/data-and-tools/topography/paraview-topography-by-texture-mapping
+                else:
+                    raise ValueError
+
                 if ftype=='BINARY':
                     point_data_ELEMENT = np.array(point_data_ELEMENT, dtype='>f')
                     f.write(point_data_ELEMENT.tobytes())
@@ -221,16 +224,27 @@ def vtk_export(out_filename, points,
                 np.savetxt(f, point_data)
 
     if cell_data is not None:
-        f.write(b'CELL_DATA %d\n'%(cell_data.shape[0]))
-        if texture == 'VECTORS':
-            f.write(b'VECTORS %s float\n'%(bytearray(cell_data_name, 'utf-8')))
-        else:
-            raise ValueError ('TODO implement')
-        if ftype=='BINARY':
-            cell_data = np.array(cell_data, dtype='>f')
-            f.write(cell_data.tobytes())
-        else:
-            np.savetxt(f, cell_data, fmt = '%.3f')
+        if isinstance(cell_data_name, str):
+            cell_data_name = [cell_data_name]
+            texture = [texture]
+            cell_data = [cell_data]
+
+        f.write(b'CELL_DATA %d\n'%(cell_data[0].shape[0]))
+        for i in range(len(cell_data_name)):
+            if   texture[i] == 'SCALARS':
+                f.write(b'SCALARS %s float 1\n'%(bytearray(cell_data_name[i], 'utf-8'))) # number with float???
+                f.write(b'LOOKUP_TABLE default\n')
+            elif texture[i] == 'VECTORS':
+                f.write(b'VECTORS %s float\n'%(bytearray(cell_data_name[i], 'utf-8')))
+            elif texture[i] == 'TEXTURE_COORDINATES':
+                f.write(b'TEXTURE_COORDINATES %s 2 float\n'%(bytearray(cell_data_name[i], 'utf-8'))) # http://www.earthmodels.org/data-and-tools/topography/paraview-topography-by-texture-mapping
+            else:
+                raise ValueError
+
+            if ftype=='BINARY':
+                f.write(np.array(cell_data[i], dtype='>f').tobytes())
+            else:
+                np.savetxt(f, cell_data[i], fmt = '%.3f')
 
     f.close()
     if debug:
