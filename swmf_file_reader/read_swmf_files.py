@@ -1,3 +1,5 @@
+########### DEPRECIATED ##############
+
 from collections import namedtuple
 import numpy as np
 import scipy.io as sio
@@ -93,11 +95,8 @@ def read_out_file(filetag):
     header = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
     nStep, Time, nDimOut, nParam, nVar = ff.read_ints(dtype=np.int32)
     n_D = ff.read_ints(dtype=np.int32)
-    whatISthis=ff.read_ints(dtype=np.uint8).tobytes()
-    try:
-        print(whatISthis.decode('UTF-8'))
-    except:
-        pass
+    ScalarParams = ff.read_reals(dtype=np.float32)
+
     allvariables = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
     allvariables = allvariables.strip().split(' ')
     npts = n_D[0]; assert(n_D[1]==1 and n_D[2]==1 and n_D.size==3)
