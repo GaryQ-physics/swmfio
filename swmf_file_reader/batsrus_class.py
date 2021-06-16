@@ -1,4 +1,3 @@
-from collections import namedtuple
 import numpy as np
 from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
 from swmf_file_reader.read_batsrus import read_tree_file, read_out_file
@@ -15,7 +14,6 @@ def F2P(fortran_index):
 @njit
 def P2F(python_index):
     return python_index + 1
-
 
 spec = [
             ('nDim'      , types.int32                                    ),
@@ -313,7 +311,6 @@ class BatsrusClass:
             partials[2] = (DA[iVar, i, j, k+1, iBlockP] - DA[iVar, i, j, k-1, iBlockP])/(2*epsilonZ)
 
         return partials
-
 
 
 def return_class(filetag):

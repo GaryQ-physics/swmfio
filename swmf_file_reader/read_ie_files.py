@@ -3,12 +3,6 @@ import re
 from numba import types
 from numba.typed import Dict
 
-# in ModIonoMagPerturb.f90
-#          call get_planet_field(Time_simulation, XyzIono_D, 'SMG', bIono_D)
-#          bIono_D = bIono_D/sqrt(sum(bIono_D**2))
-#          ! get the Hall and Perdersen currents in xyz coords
-#          Jh_IID(i,j,:) = cross_product(bIono_D, eIono_IID(i,j,:))*SigmaH(i,j)
-#          Jp_IID(i,j,:) = eIono_IID(i,j,:) * SigmaP(i,j)
 
 def grep_dash_o(RE, lines):
     ret = ''
