@@ -134,7 +134,7 @@ def read_iono_tec(filename):
 
     deg = np.pi/180.
 
-    if True:
+    if False:
         x_overwrite = Radius*np.cos(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
         y_overwrite = Radius*np.sin(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
         z_overwrite = Radius*np.cos(data_arr[varidx['Theta'], :]*deg)
