@@ -83,7 +83,8 @@ def read_out_file(filetag):
     variables = variables.strip().split(' ')
     variables = tuple(variables[:nVar]) # all other variables in the string arent in arrays in the file
 
-    data_arr = np.empty((npts, nVar), order='C', dtype=np.float32)
+    data_arr = np.empty((npts, nVar+1), order='C', dtype=np.float32)
+    data_arr[:, -1] = np.nan
 
     xyz = ff.read_reals(dtype=np.float32).reshape(3, npts) 
     data_arr[:, 0] = xyz[0,:]

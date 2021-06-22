@@ -93,6 +93,14 @@ class BatsrusClass:
             self.block2node[iBlockP] = iNodeP
             self.node2block[iNodeP] = iBlockP
 
+        for iBlockP in range(nBlock):
+            epsilonX = DataArray[varidx['x'], 1,0,0,iBlockP] -  DataArray[varidx['x'], 0,0,0,iBlockP]
+            epsilonY = DataArray[varidx['y'], 0,1,0,iBlockP] -  DataArray[varidx['y'], 0,0,0,iBlockP]
+            epsilonZ = DataArray[varidx['z'], 0,0,1,iBlockP] -  DataArray[varidx['z'], 0,0,0,iBlockP]
+            for k in range(nK):
+                for j in range(nJ):
+                    for i in range(nI):
+                        self.DataArray[varidx['measure'], i,j,k,iBlockP] = epsilonX*epsilonY*epsilonZ
 
     # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
     def get_tree_position(self, iNode):
@@ -336,13 +344,14 @@ def return_class(filetag):
     assert(not np.isfortran(data_arr))
     DataArray = data_arr.transpose()
     assert(np.isfortran(DataArray))
-    DataArray = DataArray.reshape((len(variables), nI, nJ, nK, nBlock), order='F')
+    DataArray = DataArray.reshape((len(variables)+1, nI, nJ, nK, nBlock), order='F')
     assert(np.isfortran(DataArray))
 
     varidx = Dict.empty(
         key_type=types.unicode_type,
         value_type=types.int32,
         )
+    varidx['measure'] = np.int32(len(variables))
     for ivar,var in enumerate(variables):
         varidx[var] = np.int32(ivar)
 
@@ -375,6 +384,8 @@ def return_class(filetag):
 
 def main():
     cls = return_class('/tmp/3d__var_2_e20190902-041000-000')
+    print(cls.varidx)
+    print(cls.data_arr)
 
     onpoint = np.array([-146.,  -14.,  -14.])
     offpoint = np.array([-143.,  -15.,  -15.])
