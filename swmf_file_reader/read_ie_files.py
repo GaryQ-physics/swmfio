@@ -134,7 +134,7 @@ def read_iono_tec(filename):
 
     deg = np.pi/180.
 
-    if False:
+    if True:
         x_overwrite = Radius*np.cos(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
         y_overwrite = Radius*np.sin(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
         z_overwrite = Radius*np.cos(data_arr[varidx['Theta'], :]*deg)
@@ -145,6 +145,6 @@ def read_iono_tec(filename):
 
     # integration measure of dA = dTheta*dPhi*(Rad**2)*sin(Theta)
     varidx['measure'] = np.int32(22)
-    data_arr[22, :] = (1.*deg)*(2.*deg)*(Radius**2)*np.sin(data_arr[varidx['Theta'], :])
+    data_arr[22, :] = (1.*deg)*(2.*deg)*(Radius**2)*np.sin(deg*data_arr[varidx['Theta'], :])
 
     return data_arr, varidx, units
