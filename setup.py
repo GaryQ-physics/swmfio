@@ -4,7 +4,7 @@ install_requires = ["numpy","scipy"]
 
 setup(
     name='swmf_file_reader',
-    version='0.0.0.9',
+    version='0.0.0.10',
     packages=find_packages(),
     description='reading swmf files using spacepy and scipy.io.FortranFiles',
     install_requires=install_requires

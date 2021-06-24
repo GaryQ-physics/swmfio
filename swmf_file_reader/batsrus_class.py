@@ -289,7 +289,7 @@ class BatsrusClass:
         nVar, nI, nJ, nK, nBlock = DA.shape
 
         i,j,k,iBlockP = util.unravel_index(indx, (nI,nJ,nK,nBlock), order='F')
-        print(indx == i + nI*j + nI*nJ*k + nI*nJ*nK*iBlockP)
+        assert(indx == i + nI*j + nI*nJ*k + nI*nJ*nK*iBlockP)#!!!
 
         partials = np.empty(3, dtype=np.float32)
 
