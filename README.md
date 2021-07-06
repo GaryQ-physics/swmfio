@@ -2,8 +2,11 @@
 
 reads the .out, .tree, and .info files for the data from the
 (BATSRUS) magnetosphere component of an SWMF run.
+For example datafiles, go to
+`http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/`.
 
-In principle works for python 2 and 3
+Full functionality for python3, limited functionality python2 due to no
+python2 compatibility with numba.
 
 # Install
 for user:
@@ -18,13 +21,11 @@ cd swmf_file_reader
 pip install --editable .
 ```
 
-# Tested
+# using this package
 
-works:
-Python 3.7.9 \[GCC 7.3.0\]
-Python 2.7.18 \[GCC 7.3.0\]
+## Batsrus files
 
-# Overview:
+### overview
 
 Bats-r-us outputs consists of files: 3d_*.out , 3d_*.tree , 3d_*.info
 
@@ -48,49 +49,64 @@ Bats-r-us outputs consists of files: 3d_*.out , 3d_*.tree , 3d_*.info
 3d_*.info:
 > text file containing nI,nJ,nK, and other meta data.
 
-This package has 4 functions that one would typically use externally,
-all located in the 'read_swmf_files.py' file.
-The rest are is mostly meant for internal use.
-The 4 functions are:
- - read_all(filetag)
-    - takes as input the string for 3d_*  without the extentions (including full path if needed).
-    - returns a dictionary (refered to internally as "cache")
-       which has all the data needed from the 3d_*.tree/out/info files.
-       In particular is has the following important key:values
-        - "DataArray" : a 5d array.
-          the first index corresponds to a variable name from
-          the variables in the 3d_*.out file
-          (the correspondance is in 'named_var_indexes.py' file).
-          After that, the next 4 indexes iterate over the native grid block by block.
-          e.g: `DataArray[_rho, iBlockP, i,j,k]` will give you rho at a certain gridpoint.
-          That grid point is located in the (i,j,k)th location of the nI-by-nJ-by-nK regular grid
-          of the block indexed by iBlock.
-          Note: a sublty is the index "iBlockP" starts at 0 (P stands for python)
-          and is thus shifted by 1 from "iBlock" (which originally was fortran indexed).
-        - "block2node" : a 1d array for converting iBlock indexes to the corresponding iNode indexes.
-          The array is indexed by iBlockP, and the entries are the corresponding iNodeP
-        - "node2block" : a 1d array for converting iNode indexex to the corresponding iBlock indexes,
-          iff iNode is a valid leaf.
-          The array is indexed by iNodeP, and the entries are the corresponding iBlockP
-          if iNode is a valid leaf, and -1 otherwise.
 
- - find_index(filetag, point, cache=None, debug=False)
-    * Inputed: a (3,) array with the x,y,z of a point in space, a filetag 3d_* and optionally its cache
-    * returns the `(iBlockP,i,i,k)` index of point, if point is a gridpoint.
-      If point is *not* a gridpoint, then return None.
-    * Note: If cache is None, then read_all(filetag) is called,
-      but if you already have cache saved you can optionally pass it in
-      to save time by not re-loading the datafiles.
 
- - interpolate(filetag, point, var='p', cache=None, debug=False)
-    * Inputed: a (3,) array with the x,y,z of a point in space, a filetag 3d_* and optionally its cache
-    * returns the interpolated value of the variable "var" at point.
-    * Note: If cache is None, then read_all(filetag) is called,
-       but if you already have cache saved you can optionally pass it in
-       to save time by not re-loading the datafiles.
+There are two interfaces for working with theses files:
+batsrus_imperative and batsrus_class
 
- - swmf2vtk(filetag, use_ascii=False, cache=None)
-    * writes a 3d_*.vtk for the inputed file tag 3d_* .
-    * Note: If cache is None, then read_all(filetag) is called,
-      but if you already have cache saved you can optionally pass it in
-      to save time by not re-loading the datafiles.
+### class
+
+```
+from swmf_file_reader.batsrus_class import return_class
+batsclass = return_class('/tmp/3d__var_2_e20190902-041000-000')
+```
+
+This returns a numba jit class,
+with the simulation data in arrays as class atributes,
+and interpolation and differentiation as class methods
+
+### imperative
+
+```
+from swmf_file_reader.batsrus_imperative import read_files
+batstup = read_files('/tmp/3d__var_2_e20190902-041000-000')
+```
+
+This returns a python Named Tuple,
+containing the simulation data in arrays ect.
+To do interpolation and differentiation, you must pass the namedtuple
+to the associated function is batsrus_imperative.
+NOTE: this can be used with python2, although it will be slower since
+numba will be bypassed.
+
+### Basic Example
+
+```
+filetag = '/tmp/3d__var_2_e20190902-041000-000'
+
+########## class
+from swmf_file_reader.batsrus_class import return_class
+batsclass = return_class(filetag)
+
+print( batsclass.data_arr.shape )
+print( batsclass.interpolate(np.array([1.,1.,1.), 'rho') )
+print( batsclass.get_native_partial_derivatives(123456, 'rho') )
+
+########## imperative
+from swmf_file_reader.batsrus_imperative import read_files, get_native_partial_derivatives, interpolate
+batstup = read_files(filetag)
+
+print( batstup.data_arr.shape )
+print( interpolate(batstup, np.array([1.,1.,1.), 'rho') )
+print( get_native_partial_derivatives(batstup, 123456, 'rho') )
+```
+
+### export vtk files
+
+```
+from swmf_file_reader.swmf2vtk import write_BATSRUS_unstructured_grid_vtk
+filetag = '/tmp/3d__var_2_e20190902-041000-000'
+write_BATSRUS_unstructured_grid_vtk(filetag, use_ascii=False)
+```
+This will create '/tmp/3d__var_2_e20190902-041000-000.vtk'
+Note, currently uses the batsrus_class, so only for python3.
