@@ -1,3 +1,7 @@
+#####################
+# Depreciated
+#########################
+
 from collections import namedtuple
 import numpy as np
 from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_

@@ -62,6 +62,3 @@ the indexes of the children nodes (if any);
 the processor index where the block is stored for active nodes;
 the local block index for active nodes.
 '''
-
-# my added named constants
-ROOTNODE_ = 1

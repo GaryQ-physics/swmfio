@@ -12,6 +12,7 @@ def grep_dash_o(RE, lines):
             ret = ret + '\n'.join(findall) + '\n'
     return ret
 
+# tested only for DIPTSUR2
 def read_iono_tec(filename):
     with open(filename, 'r') as f:
         lines = f.readlines()
@@ -133,7 +134,6 @@ def read_iono_tec(filename):
     Radius = (6378.+100.)/6378.
 
     deg = np.pi/180.
-
     if True:
         x_overwrite = Radius*np.cos(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
         y_overwrite = Radius*np.sin(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
@@ -148,6 +148,140 @@ def read_iono_tec(filename):
     data_arr[22, :] = (1.*deg)*(2.*deg)*(Radius**2)*np.sin(deg*data_arr[varidx['Theta'], :])
 
     return data_arr, varidx, units
+
+# tested only for SWPC_SWMF_052811_2
+def read_iono_cdf(filename):
+    import cdflib
+
+    cdf = cdflib.CDF(filename)
+
+    x = cdf.varget("x")
+    y = cdf.varget("y")
+    z = cdf.varget("z")
+    psi_ax = cdf.varget("phi")
+    theta_ax = cdf.varget("theta") # for some reason these seem to be 
+    if np.max(theta_ax) < 91:
+        theta_ax = 90. - theta_ax # change latitude to colatitude\
+
+    x = x.reshape((181, 181))
+    y = y.reshape((181, 181))
+    z = z.reshape((181, 181))
+    psi_ax = psi_ax.reshape((181,))
+    theta_ax = theta_ax.reshape((181,))
+
+    # The following will verify forall (i,j), 
+    #       x[i,j] == x_func(psi_ax[i], theta_ax[j])
+    #   where x_fuct(psi, theta) is standard cartesian function of polar coordinates
+    if True:
+        deg = np.pi/180.
+        for i in range(181):
+            for j in range(181):
+                x_calc = np.cos(psi_ax[i]*deg)*np.sin(theta_ax[j]*deg)
+                y_calc = np.sin(psi_ax[i]*deg)*np.sin(theta_ax[j]*deg)
+                z_calc =                       np.cos(theta_ax[j]*deg)
+                #print( np.abs(x[i,j] - x_calc) < 1e-4 )
+                #print( np.abs(y[i,j] - y_calc) < 1e-4 )
+                #print( np.abs(z[i,j] - z_calc) < 1e-4 )
+                #print( (x[i,j] , x_calc) )
+                #print( (y[i,j] , y_calc) )
+                #print( (z[i,j] , z_calc) )
+                assert( np.abs(x[i,j] - x_calc) < 1e-4 )
+                assert( np.abs(y[i,j] - y_calc) < 1e-4 )
+                assert( np.abs(z[i,j] - z_calc) < 1e-4 )
+    # we could therefore in principle build an interpolator
+    # for any variable var as a function of polar coordinates using:
+    #   var(psi_ax[i], theta_ax[j]) == cdf.varget('var').reshape((181, 181))[i,j]
+
+    #conv = {
+    #    'x'                         : 'X'     ,
+    #    'y'                         : 'Y'     ,
+    #    'z'                         : 'Z'     ,
+    #    'theta'                     : 'Theta' ,
+    #    'phi'                       : 'Psi'   , # only one that differs by more than just the case
+    #    'sigmaH'                    : 'SigmaH',
+    #    'sigmaP'                    : 'SigmaP',
+    #    'eflux'                     : 'eflux' ,
+    #    'eave'                      : 'eave'  ,
+    #    'jr'                        : 'Jr'    ,
+    #    'ep'                        : 'Ep'    ,
+    #    'ex'                        : 'Ex'    ,
+    #    'ey'                        : 'Ey'    ,
+    #    'ez'                        : 'Ez'    ,
+    #    'jx'                        : 'Jx'    ,
+    #    'jy'                        : 'Jy'    ,
+    #    'jz'                        : 'Jz'    ,
+    #    'ux'                        : 'Ux'    ,
+    #    'uy'                        : 'Uy'    ,
+    #    'uz'                        : 'Uz'    ,
+    #    'kameleon_identity_unknown1': None    ,
+    #    'kameleon_identity_unknown2': None    ,
+    #    }
+
+    varidx = Dict.empty(
+        key_type=types.unicode_type,
+        value_type=types.int64,
+        )
+    units = {}
+
+    data_arr = np.empty((23, 2+180*179), dtype=np.float32); data_arr[:,:]=np.nan
+    iVar = 0
+    for cdfvar in cdf.cdf_info()['zVariables']:
+        var = cdf.varattsget(cdfvar)['Original Name']
+        units[var] = cdf.varattsget(cdfvar)['units']
+
+        if var=='Psi' or var=='Theta':
+            continue
+        vararr = cdf.varget(cdfvar).reshape((181, 181)) # note, varget is case insensitive
+        varidx[var] = iVar
+
+        data_arr[iVar, 0] = np.average(vararr[i, 180])
+        data_arr[iVar, 1] = np.average(vararr[i,   0])
+
+        indx = 2
+        for i in range(180):
+            for j in range(1,180):
+                data_arr[iVar, indx] = vararr[i,j]
+                indx += 1
+        iVar += 1
+
+    varidx['Psi'] = _Psi = iVar
+    varidx['Theta'] = _Theta = iVar+1
+    varidx['measure'] = _measure = iVar+2
+    assert(_measure == 22)
+
+    data_arr[_Psi, 0] = 0. # or np.nan?
+    data_arr[_Psi, 1] = 0.
+
+    data_arr[_Theta, 0] = 0.
+    data_arr[_Theta, 1] = 180.
+
+    indx = 2
+    for i in range(180):
+        for j in range(1,180):
+            data_arr[_Psi,   indx] = psi_ax[i]
+            data_arr[_Theta, indx] = theta_ax[j]
+            indx += 1
+
+    # from swmf's PostIONO.f90
+    Radius = (6378.+100.)/6378.
+
+    deg = np.pi/180.
+    if True:
+        x_overwrite = Radius*np.cos(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
+        y_overwrite = Radius*np.sin(data_arr[varidx['Psi'], :]*deg)*np.sin(data_arr[varidx['Theta'], :]*deg)
+        z_overwrite = Radius*np.cos(data_arr[varidx['Theta'], :]*deg)
+        assert(np.max(np.abs(Radius*data_arr[varidx['X'], :] - x_overwrite))<1e-3)
+        assert(np.max(np.abs(Radius*data_arr[varidx['Y'], :] - y_overwrite))<1e-3)
+        assert(np.max(np.abs(Radius*data_arr[varidx['Z'], :] - z_overwrite))<1e-3)
+        data_arr[varidx['X'], :] = x_overwrite
+        data_arr[varidx['Y'], :] = y_overwrite
+        data_arr[varidx['Z'], :] = z_overwrite
+
+    # integration measure of dA = dTheta*dPhi*(Rad**2)*sin(Theta)
+    data_arr[_measure, :] = (1.*deg)*(2.*deg)*(Radius**2)*np.sin(deg*data_arr[varidx['Theta'], :])
+
+    return data_arr, varidx, units
+
 
 def testing():
     fname = '/home/gary/temp/i_e20190902-041100-000.tec'
@@ -242,17 +376,59 @@ def testing():
     plt.plot(JREC_norm, '.')
     plt.show()
 
-    #import matplotlib.pyplot as plt
-    #from mpl_toolkits.mplot3d import Axes3D
-    #c = data_arr[varidx['SigmaP'] , :]
-    #fig = plt.figure()
-    #ax = fig.add_subplot(111, projection='3d')
+
+def testing2():
+    fname = '/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/IONO-2D_CDF/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
+    data_arr, varidx, units, x_overwrite, y_overwrite, z_overwrite = read_iono_cdf(fname)
+    print(varidx)
+    print(units)
+    print(data_arr.shape)
+
+    X  = data_arr[varidx['X'] , :]
+    Y  = data_arr[varidx['Y'] , :]
+    Z  = data_arr[varidx['Z'] , :]
+    measure = data_arr[varidx['measure'] , :]
+    Theta  = data_arr[varidx['Theta'] , :]
+    Psi  = data_arr[varidx['Psi'] , :]
+
+    R = np.sqrt(X**2 + Y**2 + Z**2)
+    print(R)
+    # from swmf's PostIONO.f90
+    Radius = (6378.+100.)/6378.
+    print(Radius)
+    print('surface area:')
+    print(4*np.pi*Radius**2)
+    print(np.sum(measure))
+
+    print( np.max(np.abs(Radius*X-x_overwrite)) )
+    print( np.max(np.abs(Radius*Y-y_overwrite)) )
+    print( np.max(np.abs(Radius*Z-z_overwrite)) )
+
+    print(np.where(np.abs(Radius*X-x_overwrite) > 5e-5))
+    print( np.max(np.abs(Radius*X-x_overwrite)[2:]) )
+    print( np.max(np.abs(Radius*Y-y_overwrite)[2:]) )
+    print( np.max(np.abs(Radius*Z-z_overwrite)[2:]) )
+    
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    c = data_arr[varidx['SigmaP'] , :]
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
     #sc1 = ax.scatter(X, Y, Z, c=c, s=0.3)
-    #ax.set_xlabel('X')
-    #ax.set_ylabel('Y')
-    #ax.set_zlabel('Z')
-    #fig.colorbar(sc1, ax=ax, label='SigmaP')
-    #plt.show()
+    sc1 = ax.scatter(Radius*X-x_overwrite, Radius*Y-y_overwrite, Radius*Z-z_overwrite, c=c, s=10.)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_xlim((-1.5e-4,1.5e-4))
+    ax.set_ylim((-1.5e-4,1.5e-4))
+    ax.set_zlim((-1.5e-4,1.5e-4))
+    fig.colorbar(sc1, ax=ax, label='SigmaP')
+    plt.show()
 
 if __name__ == '__main__':
-    testing()
+    filename = '/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/IONO-2D_CDF/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
+    tup=read_iono_cdf(filename)
+    print(tup[0])
+    print(tup[1])
+    print(tup[2])
+    #testing2()

@@ -1,11 +1,23 @@
 import numpy as np
-from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
-from swmf_file_reader.read_batsrus import read_tree_file, read_out_file
+from swmf_file_reader.swmf_constants import Used_,Unused_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_
+from swmf_file_reader.read_batsrus import read_tree, read_data
 from swmf_file_reader import util
 
 from numba import njit, types
 from numba.typed import Dict
 from numba.experimental import jitclass
+
+# npts -> nCell
+# block_parent_id   -> node_parent_id   
+# block_child_ids   -> node_child_ids   
+# block_amr_levels  -> node_amr_levels  
+# block_x_min       -> node_x_min       
+# block_y_min       -> node_y_min       
+# block_z_min       -> node_z_min       
+# block_x_max       -> node_x_max       
+# block_y_max       -> node_y_max       
+# block_z_max       -> node_z_max       
+# block_child_count -> node_child_count 
 
 @njit
 def F2P(fortran_index):
@@ -14,6 +26,10 @@ def F2P(fortran_index):
 @njit
 def P2F(python_index):
     return python_index + 1
+
+#            ('iRatio_D'  , types.int32[:]                                 ),
+#            ('nRoot_D'   , types.int32[:]                                 ),
+#            ('nInfo'     , types.int32                                    ),
 
 spec = [
             ('nDim'      , types.int32                                    ),
@@ -26,74 +42,97 @@ spec = [
             ('xGlobalMax', types.float32                                  ),
             ('yGlobalMax', types.float32                                  ),
             ('zGlobalMax', types.float32                                  ),
-            ('nInfo'     , types.int32                                    ),
-            ('nNode'     , types.int32                                    ),
-            ('iRatio_D'  , types.int32[:]                                 ),
-            ('nRoot_D'   , types.int32[:]                                 ),
+
+            ('rootnode'   , types.int32  ),
+            ('block_parent_id'   , types.int32[:] ),
+            ('block_child_ids'   , types.int32[:,:] ),
+            ('block_amr_levels'  , types.int32[:] ),
+            ('block_x_min'       , types.float32[:] ),
+            ('block_y_min'       , types.float32[:] ),
+            ('block_z_min'       , types.float32[:] ),
+            ('block_x_max'       , types.float32[:] ),
+            ('block_y_max'       , types.float32[:] ),
+            ('block_z_max'       , types.float32[:] ),
+            ('block_child_count' , types.int8[:] ),
 
             ('data_arr'  , types.float32[:,:]                             ),
             ('DataArray' , types.float32[:,:,:,:,:]                       ),
-            ('iTree_IA'  , types.int32[:,:]                               ),
+            ('varidx'    , types.DictType(types.unicode_type, types.int32)),
+
             ('block2node', types.int32[:]                               ),
             ('node2block', types.int32[:]                               ),
-            ('varidx'    , types.DictType(types.unicode_type, types.int32)),
             ]
+
+
 @jitclass(spec)
 class BatsrusClass:
-    def __init__(self, 
-                    nDim       ,
-                    nI         ,
-                    nJ         ,
-                    nK         ,
-                    xGlobalMin ,
-                    yGlobalMin ,
-                    zGlobalMin ,
-                    xGlobalMax ,
-                    yGlobalMax ,
-                    zGlobalMax ,
-                    nInfo      ,
-                    nNode      ,
-                    iRatio_D   ,
-                    nRoot_D    ,
+    def __init__(self,
+                    nDim      ,
+                    nI        ,
+                    nJ        ,
+                    nK        ,
+                    xGlobalMin,
+                    yGlobalMin,
+                    zGlobalMin,
+                    xGlobalMax,
+                    yGlobalMax,
+                    zGlobalMax,
 
-                    data_arr   ,
-                    DataArray  ,
-                    iTree_IA   ,
-                    block2node ,
-                    node2block ,
-                    varidx         ):
+                    rootnode          ,
+                    block_parent_id   ,
+                    block_child_ids   ,
+                    block_amr_levels  ,
+                    block_x_min       ,
+                    block_y_min       ,
+                    block_z_min       ,
+                    block_x_max       ,
+                    block_y_max       ,
+                    block_z_max       ,
+                    block_child_count ,
 
-        self.nDim       = nDim      
-        self.nI         = nI        
-        self.nJ         = nJ        
-        self.nK         = nK        
-        self.xGlobalMin = xGlobalMin
-        self.yGlobalMin = yGlobalMin
-        self.zGlobalMin = zGlobalMin
-        self.xGlobalMax = xGlobalMax
-        self.yGlobalMax = yGlobalMax
-        self.zGlobalMax = zGlobalMax
-        self.nInfo      = nInfo     
-        self.nNode      = nNode     
-        self.iRatio_D   = iRatio_D  
-        self.nRoot_D    = nRoot_D   
+                    data_arr     ,
+                    DataArray    ,
+                    varidx       ,
 
-        self.data_arr   = data_arr     
-        self.DataArray  = DataArray    
-        self.iTree_IA   = iTree_IA     
-        self.block2node = block2node   
-        self.node2block = node2block   
-        self.varidx     = varidx       
+                    block2node   ,
+                    node2block   ):
 
-        npts = data_arr.shape[0]
-        nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
+        self.nDim              = nDim      
+        self.nI                = nI        
+        self.nJ                = nJ        
+        self.nK                = nK        
+        self.xGlobalMin        = xGlobalMin
+        self.yGlobalMin        = yGlobalMin
+        self.zGlobalMin        = zGlobalMin
+        self.xGlobalMax        = xGlobalMax
+        self.yGlobalMax        = yGlobalMax
+        self.zGlobalMax        = zGlobalMax
+
+        self.rootnode          = rootnode
+        self.block_parent_id   = block_parent_id   
+        self.block_child_ids   = block_child_ids   
+        self.block_amr_levels  = block_amr_levels  
+        self.block_x_min       = block_x_min       
+        self.block_y_min       = block_y_min       
+        self.block_z_min       = block_z_min       
+        self.block_x_max       = block_x_max       
+        self.block_y_max       = block_y_max       
+        self.block_z_max       = block_z_max       
+        self.block_child_count = block_child_count 
+
+        self.data_arr          = data_arr     
+        self.DataArray         = DataArray    
+        self.varidx            = varidx       
+
+        self.block2node        = block2node   
+        self.node2block        = node2block   
+
         # map blocks and nodes
-        for iBlockP in range(nBlock):
+        for iBlockP in range(block2node.size):
             iNodeP = F2P( self.find_tree_node(data_arr[iBlockP*nI*nJ*nK, 0:3]) )
             self.block2node[iBlockP] = iNodeP
             self.node2block[iNodeP] = iBlockP
 
-        for iBlockP in range(nBlock):
             epsilonX = DataArray[varidx['x'], 1,0,0,iBlockP] -  DataArray[varidx['x'], 0,0,0,iBlockP]
             epsilonY = DataArray[varidx['y'], 0,1,0,iBlockP] -  DataArray[varidx['y'], 0,0,0,iBlockP]
             epsilonZ = DataArray[varidx['z'], 0,0,1,iBlockP] -  DataArray[varidx['z'], 0,0,0,iBlockP]
@@ -102,64 +141,7 @@ class BatsrusClass:
                     for i in range(nI):
                         self.DataArray[varidx['measure'], i,j,k,iBlockP] = epsilonX*epsilonY*epsilonZ
 
-    # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
-    def get_tree_position(self, iNode):
-        '''
-        Calculate normalized position of the edges of node iNode.
-        Zero is at the minimum boundary of the grid, one is at the max boundary
-        the tree is described by iTree_IA and pr
-        '''
-        iLevel = self.iTree_IA[F2P(Level_), F2P(iNode)]
 
-        MaxIndex_D = ((2**(iLevel)-1)*(self.iRatio_D-1) + 1)*self.nRoot_D
-        # Note: in the common case of iRatio_D=[2,2,2] and nRoot_D=[1,1,1]:
-        # MaxIndex_D[all] = ((2**(iLevel)-1)*(2-1) + 1)*1
-        #                 = 2**iLevel
-
-        assert(MaxIndex_D.shape == (3,))
-        assert(np.all( MaxIndex_D == 2**iLevel ))
-        # note that if gridspacing = (256./8.)*0.5**iLevel, then gridspacing*MaxIndex_D[all] == 256./8. == 32. )
-
-        # Convert to real by adding -1.0 or 0.0 for the two edges, respectively
-        block_coords = self.iTree_IA[F2P(Coord1_):F2P(CoordLast_)+1,F2P(iNode)] # not seperatly defined in BATL_tree.f90
-        PositionMin_D = (block_coords - 1.0)/MaxIndex_D
-        PositionMax_D = (block_coords + 0.0)/MaxIndex_D
-
-        return PositionMin_D, PositionMax_D
-
-    def get_physical_dimensions(self, iNode, returnCenters=False):
-        x_start = self.xGlobalMin
-        y_start = self.yGlobalMin
-        z_start = self.zGlobalMin
-        x_range = self.xGlobalMax - self.xGlobalMin
-        y_range = self.yGlobalMax - self.yGlobalMin
-        z_range = self.zGlobalMax - self.zGlobalMin
-
-        iLevel = self.iTree_IA[F2P(Level_), F2P(iNode)]
-        assert(self.nI == self.nJ == self.nK)#!!!!
-        assert(x_range == y_range == z_range)
-        gridspacing = (x_range/self.nI)*0.5**iLevel
-
-        PositionMin_D, PositionMax_D = self.get_tree_position(iNode)
-        xmin = x_range*(PositionMin_D[0]) + x_start
-        ymin = y_range*(PositionMin_D[1]) + y_start
-        zmin = z_range*(PositionMin_D[2]) + z_start
-        xmax = x_range*(PositionMax_D[0]) + x_start
-        ymax = y_range*(PositionMax_D[1]) + y_start
-        zmax = z_range*(PositionMax_D[2]) + z_start
-
-        if returnCenters:
-            xlims = (xmin+gridspacing/2., xmax-gridspacing/2.) #!! faster to use arrays??
-            ylims = (ymin+gridspacing/2., ymax-gridspacing/2.)
-            zlims = (zmin+gridspacing/2., zmax-gridspacing/2.)
-            return xlims, ylims, zlims, gridspacing
-        else:
-            xminmax = (xmin, xmax)
-            yminmax = (ymin, ymax)
-            zminmax = (zmin, zmax)
-            return xminmax, yminmax, zminmax, gridspacing
-
-    # supposed to reproduce SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 975, but differently
     def find_tree_node(self, point):
         xin = self.xGlobalMin <= point[0] <= self.xGlobalMax
         yin = self.yGlobalMin <= point[1] <= self.yGlobalMax
@@ -168,19 +150,17 @@ class BatsrusClass:
         if not (xin and yin and zin): 
             raise RuntimeError ('point out of simulation volume')
 
-        iNode = ROOTNODE_
+        iNode = self.rootnode
         while(True):
-            if Used_ == self.iTree_IA[F2P(Status_), F2P(iNode)]:
+            if self.block_child_count[F2P(iNode)] == 0:
                 break
 
-            for j in range(8):
-                child = self.iTree_IA[F2P(Child1_+j), F2P(iNode)]
-                xminmax, yminmax, zminmax, gridspacing = self.get_physical_dimensions(child,
-                                                                                returnCenters=False)
+            for j in range(self.block_child_count[F2P(iNode)]):
+                child = self.block_child_ids[j, F2P(iNode)]
 
-                xin = xminmax[0] <= point[0] <= xminmax[1]
-                yin = yminmax[0] <= point[1] <= yminmax[1]
-                zin = zminmax[0] <= point[2] <= zminmax[1]
+                xin = self.block_x_min[F2P(child)] <= point[0] <= self.block_x_max[F2P(child)]
+                yin = self.block_y_min[F2P(child)] <= point[1] <= self.block_y_max[F2P(child)]
+                zin = self.block_z_min[F2P(child)] <= point[2] <= self.block_z_max[F2P(child)]
 
                 if xin and yin and zin: 
                     iNode = child
@@ -321,25 +301,23 @@ class BatsrusClass:
         return partials
 
 
-def return_class(filetag):
-    iTree_IA, pr = read_tree_file(filetag)
-    data_arr, variables = read_out_file(filetag)
+def get_class_from_native(filetag):
+    iTree_IA, iRatio_D, nRoot_D, info = read_tree(filetag)
+    data_arr, variables = read_data(filetag)
 
-    ## in what follows:
-    #  the P in iNodeP and iBlockP stands for python like indexing (as oposed to fortran)
-    #  
-    #  iNodeP indexes all nodes of the tree, from 0 to nNode-1,
-    #  and thus the "iNode" to be used in the other functions is simply iNodeP+1, or P2F(iNodeP)
-    # 
-    #  iBlockP indexes all the blocks used, from 0 to nBlock-1.
-    #  There is one for each node with a status of used. 
-    #  Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
+    nI = int(info['BlockSize1'])
+    nJ = int(info['BlockSize2'])
+    nK = int(info['BlockSize3'])
+    xGlobalMin = float(info['Coord1Min'])
+    yGlobalMin = float(info['Coord2Min'])
+    zGlobalMin = float(info['Coord3Min'])
+    xGlobalMax = float(info['Coord1Max'])
+    yGlobalMax = float(info['Coord2Max'])
+    zGlobalMax = float(info['Coord3Max'])
+
+    nNode = iTree_IA.shape[1]
     npts = data_arr.shape[0]
-    nI, nJ, nK = pr.nI, pr.nJ, pr.nK
     nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
-    # initialize arrays to -1 (invalid index), will be computed in __init__
-    block2node = -np.ones((nBlock,), dtype=np.int32)
-    node2block = -np.ones((pr.nNode,), dtype=np.int32)
 
     assert(not np.isfortran(data_arr))
     DataArray = data_arr.transpose()
@@ -355,35 +333,271 @@ def return_class(filetag):
     for ivar,var in enumerate(variables):
         varidx[var] = np.int32(ivar)
 
-    batsclass = BatsrusClass(
-                      nDim       = pr.nDim      ,
-                      nI         = pr.nI        ,
-                      nJ         = pr.nJ        ,
-                      nK         = pr.nK        ,
-                      xGlobalMin = pr.xGlobalMin,
-                      yGlobalMin = pr.yGlobalMin,
-                      zGlobalMin = pr.zGlobalMin,
-                      xGlobalMax = pr.xGlobalMax,
-                      yGlobalMax = pr.yGlobalMax,
-                      zGlobalMax = pr.zGlobalMax,
-                      nInfo      = pr.nInfo     ,
-                      nNode      = pr.nNode     ,
-                      iRatio_D   = pr.iRatio_D  ,
-                      nRoot_D    = pr.nRoot_D   ,
+    ## in what follows:
+    #  the P in iNodeP and iBlockP stands for python like indexing (as oposed to fortran)
+    #  
+    #  iNodeP indexes all nodes of the tree, from 0 to nNode-1,
+    #  and thus the "iNode" to be used in the other functions is simply iNodeP+1, or P2F(iNodeP)
+    # 
+    #  iBlockP indexes all the blocks used, from 0 to nBlock-1.
+    #  There is one for each node with a status of used. 
+    #  Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
 
-                      data_arr   = data_arr     ,
-                      DataArray  = DataArray    ,
-                      iTree_IA   = iTree_IA     ,
-                      block2node = block2node   ,
-                      node2block = node2block   ,
-                      varidx     = varidx       ,
+    # initialize arrays to -1 (invalid index), will be computed in __init__
+    block2node = -np.ones((nBlock,), dtype=np.int32)
+    node2block = -np.ones((nNode,), dtype=np.int32)
+
+    # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
+    def get_tree_position(iNode):
+        '''
+        Calculate normalized position of the edges of node iNode.
+        Zero is at the minimum boundary of the grid, one is at the max boundary
+        the tree is described by iTree_IA and pr
+        '''
+        iLevel = iTree_IA[F2P(Level_), F2P(iNode)]
+
+        MaxIndex_D = ((2**(iLevel)-1)*(iRatio_D-1) + 1)*nRoot_D
+        # Note: in the common case of iRatio_D=[2,2,2] and nRoot_D=[1,1,1]:
+        # MaxIndex_D[all] = ((2**(iLevel)-1)*(2-1) + 1)*1
+        #                 = 2**iLevel
+
+        assert(MaxIndex_D.shape == (3,))
+        assert(np.all( MaxIndex_D == 2**iLevel ))
+        # note that if gridspacing = (256./8.)*0.5**iLevel, then gridspacing*MaxIndex_D[all] == 256./8. == 32. )
+
+        # Convert to real by adding -1.0 or 0.0 for the two edges, respectively
+        block_coords = iTree_IA[F2P(Coord1_):F2P(CoordLast_)+1,F2P(iNode)] # not seperatly defined in BATL_tree.f90
+        PositionMin_D = (block_coords - 1.0)/MaxIndex_D
+        PositionMax_D = (block_coords + 0.0)/MaxIndex_D
+
+        return PositionMin_D, PositionMax_D
+
+
+    block_parent_id = iTree_IA[Parent_, :].copy()
+    block_child_ids = iTree_IA[F2P(Child1_):F2P(Child1_)+8, :].copy()
+    block_amr_levels = iTree_IA[F2P(Level_), :].copy()
+
+    block_x_min = np.empty(nNode, dtype=np.float32)
+    block_y_min = np.empty(nNode, dtype=np.float32)
+    block_z_min = np.empty(nNode, dtype=np.float32)
+    block_x_max = np.empty(nNode, dtype=np.float32)
+    block_y_max = np.empty(nNode, dtype=np.float32)
+    block_z_max = np.empty(nNode, dtype=np.float32)
+    block_child_count = np.empty(nNode, dtype=np.int8)
+    for iNodeP in range(nNode):
+        if   iTree_IA[F2P(Status_), iNodeP] == Used_:
+            block_child_count[iNodeP] = 0
+        elif iTree_IA[F2P(Status_), iNodeP] == Unused_:
+            block_child_count[iNodeP] = 8
+        else:
+            assert(False)
+
+        x_start = xGlobalMin
+        y_start = yGlobalMin
+        z_start = zGlobalMin
+        x_range = xGlobalMax - xGlobalMin
+        y_range = yGlobalMax - yGlobalMin
+        z_range = zGlobalMax - zGlobalMin
+
+        iLevel = iTree_IA[F2P(Level_), iNodeP]
+        assert(nI == nJ == nK)#!!!!
+        assert(x_range == y_range == z_range)
+        gridspacing = (x_range/nI)*0.5**iLevel
+
+        PositionMin_D, PositionMax_D = get_tree_position(P2F(iNodeP))
+        block_x_min[iNodeP] = x_range*(PositionMin_D[0]) + x_start
+        block_y_min[iNodeP] = y_range*(PositionMin_D[1]) + y_start
+        block_z_min[iNodeP] = z_range*(PositionMin_D[2]) + z_start
+        block_x_max[iNodeP] = x_range*(PositionMax_D[0]) + x_start
+        block_y_max[iNodeP] = y_range*(PositionMax_D[1]) + y_start
+        block_z_max[iNodeP] = z_range*(PositionMax_D[2]) + z_start
+
+
+    batsclass = BatsrusClass(
+                      nDim              = 3      ,
+                      nI                = nI        ,
+                      nJ                = nJ        ,
+                      nK                = nK        ,
+                      xGlobalMin        = xGlobalMin,
+                      yGlobalMin        = yGlobalMin,
+                      zGlobalMin        = zGlobalMin,
+                      xGlobalMax        = xGlobalMax,
+                      yGlobalMax        = yGlobalMax,
+                      zGlobalMax        = zGlobalMax,
+
+                      rootnode          = 1,
+                      block_parent_id   = block_parent_id   ,
+                      block_child_ids   = block_child_ids   ,
+                      block_amr_levels  = block_amr_levels  ,
+                      block_x_min       = block_x_min       ,
+                      block_y_min       = block_y_min       ,
+                      block_z_min       = block_z_min       ,
+                      block_x_max       = block_x_max       ,
+                      block_y_max       = block_y_max       ,
+                      block_z_max       = block_z_max       ,
+                      block_child_count = block_child_count ,
+
+                      data_arr          = data_arr     ,
+                      DataArray         = DataArray    ,
+                      varidx            = varidx       ,
+
+                      block2node        = block2node   ,
+                      node2block        = node2block   ,
                       )
 
     return batsclass
 
 
-def main():
-    cls = return_class('/tmp/3d__var_2_e20190902-041000-000')
+def get_class_from_cdf(filename):
+    import cdflib #!!!!!!!!!
+    
+    cdf = cdflib.CDF(filename)
+    globatts = cdf.globalattsget()
+
+    npts = int(globatts['number_of_cells'][0])
+    nBlock = int(globatts['number_of_blocks'][0])
+    nI = int(globatts['special_parameter_NX'][0])
+    nJ = int(globatts['special_parameter_NY'][0])
+    nK = int(globatts['special_parameter_NZ'][0])
+    assert( nBlock*nI*nJ*nK == npts )
+
+    nNode = cdf.varget('block_amr_levels').size
+    block2node = -np.ones((nBlock,), dtype=np.int32)
+    node2block = -np.ones((nNode,), dtype=np.int32)
+
+    varidx = Dict.empty(
+        key_type=types.unicode_type,
+        value_type=types.int64,
+        )
+    units = {}
+
+    nVar = 0
+    for cdfvar in cdf.cdf_info()['zVariables']:
+        if cdf.varget(cdfvar).shape == (1, npts):
+            nVar += 1
+
+    nVar += 1 # for measure
+
+    data_arr = np.empty((npts,nVar), dtype=np.float32); data_arr[:,:]=np.nan
+    iVar = 0
+    for cdfvar in cdf.cdf_info()['zVariables']:
+        try:
+            var = cdf.varattsget(cdfvar)['Original Name']
+        except:
+            var = cdfvar
+        if cdf.varget(cdfvar).shape == (1, npts):
+            data_arr[:, iVar] = cdf.varget(cdfvar)[0,:]
+            units[var] = cdf.varattsget(cdfvar)['units']
+            varidx[var] = iVar
+            iVar += 1
+
+    varidx['measure'] = iVar
+
+    assert(not np.isfortran(data_arr))
+    DataArray = data_arr.transpose()
+    assert(np.isfortran(DataArray))
+    DataArray = DataArray.reshape((nVar, nI, nJ, nK, nBlock), order='F')
+    assert(np.isfortran(DataArray))
+
+    block_child_ids = np.array([
+                                cdf.varget('block_child_id_1')[0,:],
+                                cdf.varget('block_child_id_2')[0,:],
+                                cdf.varget('block_child_id_3')[0,:],
+                                cdf.varget('block_child_id_4')[0,:],
+                                cdf.varget('block_child_id_5')[0,:],
+                                cdf.varget('block_child_id_6')[0,:],
+                                cdf.varget('block_child_id_7')[0,:],
+                                cdf.varget('block_child_id_8')[0,:],
+                                ])
+    block_child_ids = np.array(P2F(block_child_ids), dtype=np.int32)
+
+    batsclass = BatsrusClass(
+                      nDim              = globatts['grid_system_1_number_of_dimensions'][0],
+                      nI                = nI,
+                      nJ                = nJ,
+                      nK                = nK,
+                      xGlobalMin        = globatts['global_x_min'][0],
+                      yGlobalMin        = globatts['global_y_min'][0],
+                      zGlobalMin        = globatts['global_z_min'][0],
+                      xGlobalMax        = globatts['global_x_max'][0],
+                      yGlobalMax        = globatts['global_y_max'][0],
+                      zGlobalMax        = globatts['global_z_max'][0],
+
+                      rootnode          = P2F( cdf.varget('block_at_amr_level')[0,0] ),
+                      block_parent_id   = cdf.varget('block_parent_id')[0,:]   ,
+                      block_child_ids   = block_child_ids,
+                      block_amr_levels  = np.array(cdf.varget('block_amr_levels')[0,:], dtype=np.int32)  ,
+                      block_x_min       = cdf.varget('block_x_min')[0,:]       ,
+                      block_y_min       = cdf.varget('block_y_min')[0,:]       ,
+                      block_z_min       = cdf.varget('block_z_min')[0,:]       ,
+                      block_x_max       = cdf.varget('block_x_max')[0,:]       ,
+                      block_y_max       = cdf.varget('block_y_max')[0,:]       ,
+                      block_z_max       = cdf.varget('block_z_max')[0,:]       ,
+                      block_child_count = np.array(cdf.varget('block_child_count')[0,:], dtype=np.int8) ,
+
+                      data_arr          = data_arr     ,
+                      DataArray         = DataArray    ,
+                      varidx            = varidx       ,
+
+                      block2node        = block2node   ,
+                      node2block        = node2block   ,
+                      )
+    return batsclass
+
+def testing_cdf():
+    import cdflib
+    cdf = cdflib.CDF('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
+
+    assert(1968*8**3 == 1007616)
+    assert(1968 == cdf.varget('block_at_amr_level')[0,0])
+    assert(1968 == np.where(cdf.varget('block_amr_levels') == 0)[1][0])
+    assert(1968 == cdf.globalattsget()['number_of_blocks'])
+
+    for iNodeP in range(cdf.varget('block_amr_levels').size):
+        if iNodeP < 1968:
+            assert(cdf.varget('block_child_count')[0,iNodeP] == 0)
+        else:
+            assert(cdf.varget('block_child_count')[0,iNodeP] == 8)
+
+    print(cdf.varget('block_amr_levels')[0,1968])
+    
+    print(cdf.varget('block_child_id_1')[0,1968])
+    print(cdf.varget('block_child_id_2')[0,1968])
+    print(cdf.varget('block_child_id_3')[0,1968])
+    print(cdf.varget('block_child_id_4')[0,1968])
+    print(cdf.varget('block_child_id_5')[0,1968])
+    print(cdf.varget('block_child_id_6')[0,1968])
+    print(cdf.varget('block_child_id_7')[0,1968])
+    print(cdf.varget('block_child_id_8')[0,1968])
+    
+    print(cdf.varget('block_amr_levels')[0,1969])
+    print(cdf.varget('block_amr_levels')[0,1970])
+    print(cdf.varget('block_amr_levels')[0,1971])
+    print(cdf.varget('block_amr_levels')[0,1972])
+    print(cdf.varget('block_amr_levels')[0,1973])
+    print(cdf.varget('block_amr_levels')[0,1974])
+    print(cdf.varget('block_amr_levels')[0,1975])
+    print(cdf.varget('block_amr_levels')[0,1976])
+
+    print(cdf.varget('block_x_min')[0,1968])
+    print(cdf.varget('block_y_min')[0,1968])
+    print(cdf.varget('block_z_min')[0,1968])
+    print(cdf.varget('block_x_max')[0,1968])
+    print(cdf.varget('block_y_max')[0,1968])
+    print(cdf.varget('block_z_max')[0,1968])
+
+
+    print(cdf.varget('block_x_min')[0,1969])
+    print(cdf.varget('block_y_min')[0,1969])
+    print(cdf.varget('block_z_min')[0,1969])
+    print(cdf.varget('block_x_max')[0,1969])
+    print(cdf.varget('block_y_max')[0,1969])
+    print(cdf.varget('block_z_max')[0,1969])
+
+
+def test():
+    #cls = get_class_from_cdf('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
+    cls = get_class_from_native('/tmp/3d__var_2_e20190902-041000-000')
     print(cls.varidx)
     print(cls.data_arr)
 
@@ -405,4 +619,5 @@ def main():
     print(cls.get_native_partial_derivatives(143456, 'z'))
 
 if __name__ == '__main__':
-    main()
+    test()
+    #testing_cdf()

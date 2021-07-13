@@ -1,13 +1,11 @@
 from collections import namedtuple
 import numpy as np
 import scipy.io as sio
+from numba import types
+from numba.typed import Dict
 
-BatsProps = namedtuple('BATSRUSProperties',['nDim','nI','nJ','nK', 
-    'xGlobalMin','yGlobalMin','zGlobalMin','xGlobalMax','yGlobalMax','zGlobalMax',
-    'nInfo','nNode','iRatio_D','nRoot_D'])
-
-
-def read_info_file(filetag):
+def read_tree(filetag):
+    # first read info file
     info = {'filetag' : filetag}
     with open(filetag+'.info','r') as f:
         for line in f.readlines():
@@ -16,12 +14,6 @@ def read_info_file(filetag):
             splt = line.split()
             if len(splt) == 2:
                 info[splt[1]] = splt[0]
-    return info
-
-
-def read_tree_file(filetag):
-    # first read info file
-    info = read_info_file(filetag)
 
     ## load tree file
     ff = sio.FortranFile(filetag+".tree", 'r')
@@ -29,45 +21,31 @@ def read_tree_file(filetag):
     iRatio_D = ff.read_ints(dtype=np.int32) # Array of refinement ratios
     nRoot_D = ff.read_ints(dtype=np.int32) # The number of root nodes in all dimension
     iTree_IA = ff.read_ints(dtype=np.int32).reshape((nInfo,nNode), order='F')
+    ff.close()
 
-    pr = BatsProps( nInfo    = nInfo                      ,
-                    nNode    = nNode                      ,
-                    iRatio_D = iRatio_D                   ,
-                    nRoot_D  = nRoot_D                    ,
-                    nDim = int(info['nDim'])              ,
-                    nI = int(info['BlockSize1'])          ,
-                    nJ = int(info['BlockSize2'])          ,
-                    nK = int(info['BlockSize3'])          ,
-                    xGlobalMin = float(info['Coord1Min']) ,
-                    yGlobalMin = float(info['Coord2Min']) ,
-                    zGlobalMin = float(info['Coord3Min']) ,
-                    xGlobalMax = float(info['Coord1Max']) ,
-                    yGlobalMax = float(info['Coord2Max']) ,
-                    zGlobalMax = float(info['Coord3Max'])       )
+    assert(nDim == int(info['nDim']))
 
-    ########################### check_thing_work #######################
-    assert(pr.nDim == nDim)
-    assert(iTree_IA.shape[1] == nNode)
-    # Maximum number of ghost cells set by Config.pl script.
-    # Valid values are 0,1,2,3,4,5
-    nG = 2
-    # Refinement ratios in the 3 dimensions. Either 1 or 2.
-    # The values are set by the Config.pl script.
-    iRatio, jRatio, kRatio = min(2, pr.nI), min(2, pr.nJ), min(2, pr.nK)
-    # Number of dimensions in which grid adaptation is done
-    nDimAmr = iRatio + jRatio + kRatio - 3
-    assert(nDimAmr == nDim)
-    assert(nDim == 3)
-    # Number of children per node
-    nChild = 2**nDimAmr
-    assert(np.isfortran(iTree_IA))
-    assert(np.all(iRatio_D == np.array([iRatio, jRatio, kRatio])))
-    ####################################################################
+    return iTree_IA, iRatio_D, nRoot_D, info
 
-    return iTree_IA, pr
+    # ########################### check_thing_work #######################
+    # # Maximum number of ghost cells set by Config.pl script.
+    # # Valid values are 0,1,2,3,4,5
+    # nG = 2
+    # # Refinement ratios in the 3 dimensions. Either 1 or 2.
+    # # The values are set by the Config.pl script.
+    # iRatio, jRatio, kRatio = min(2, pr.nI), min(2, pr.nJ), min(2, pr.nK)
+    # # Number of dimensions in which grid adaptation is done
+    # nDimAmr = iRatio + jRatio + kRatio - 3
+    # assert(nDimAmr == nDim)
+    # assert(nDim == 3)
+    # # Number of children per node
+    # nChild = 2**nDimAmr
+    # assert(np.isfortran(iTree_IA))
+    # assert(np.all(iRatio_D == np.array([iRatio, jRatio, kRatio])))
+    # ####################################################################
 
 
-def read_out_file(filetag):
+def read_data(filetag):
     nDim = 3
     ff = sio.FortranFile(filetag+".out", 'r')
     header = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
@@ -103,11 +81,11 @@ def read_out_file(filetag):
     except sio._fortran.FortranEOFError:
         pass
 
+    ff.close()
     expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
     assert(expectedheader == header.strip())
     return data_arr, variables
 
 
-
 if __name__ == '__main__':
-    pass
+    read_cdf_file('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
