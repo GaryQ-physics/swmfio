@@ -10,6 +10,8 @@ For example data files, see `http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/
 
 Requires Python 3.
 
+Provides similar functionality to the Julia program ... with the exception that the VTK grid is cell-centered. In addition, this code has an interpolator and can read CCMC `.cdf` files.
+
 # Install
 
 for user:
