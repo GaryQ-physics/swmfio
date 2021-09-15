@@ -8,6 +8,8 @@ Also provides a function to output data on native grid (as an unstructured voxel
 
 For example data files, see `http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/`.
 
+This code is used in https://github.com/GaryQ-physics/magnetopost to post process magnetosphere simulation data.
+
 Requires Python 3.
 
 Provides similar functionality to the Julia program ... with the exception that the VTK grid is cell-centered. In addition, this code has an interpolator and can read CCMC `.cdf` files.
