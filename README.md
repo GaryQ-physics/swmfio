@@ -4,7 +4,7 @@ Reads the `.out`, `.tree`, and `.info` files for the data from the (BATSRUS) mag
 
 Can also read CCMC `.cdf`, which contain the most of the information contained in the `.out`, `.tree`, and `.info` files.
 
-Also provides a function to output data on native grid (as unstructured grid with native connectivity) to a VTK file.
+Also provides a function to output data on native grid (as an unstructured voxel or hexahedra grid) to a VTK file.
 
 For example data files, see `http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/`.
 
@@ -72,6 +72,7 @@ batsclass = return_class(filetag)
 print( batsclass.data_arr.shape )
 print( batsclass.interpolate(np.array([1.,1.,1.), 'rho') )
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
+```
 
 ## CDF files
 
