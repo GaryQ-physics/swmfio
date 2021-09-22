@@ -1,10 +1,41 @@
 import numpy as np
 import swmf_file_reader.batsrus_class as batscls
 from magnetovis.vtk_export import vtk_export
+from hxform import hxform as hx
+
+
+def B_dipole(X):
+    DipoleStrength = 3.12e+4 #"dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
+    M = np.array([0,0,DipoleStrength], dtype=np.float32)
+
+    #divr = 1./np.sqrt(x**2 + y**2 + z**2)
+    #ret_x = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* x  -  (divr**3)*M[0]
+    #ret_y = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* y  -  (divr**3)*M[1]
+    #ret_z = ( 3.*(M[0]*x+M[1]*y+M[2]*z)*divr**5 )* z  -  (divr**3)*M[2]
+    #return ret_x, ret_y, ret_z
+
+    ret = np.empty(X.shape, dtype=np.float32)
+    divr = 1./np.sqrt(X[:,0]**2 + X[:,1]**2 + X[:,2]**2)
+    ret[:,0] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,0]  -  (divr**3)*M[0]
+    ret[:,1] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,1]  -  (divr**3)*M[1]
+    ret[:,2] = ( 3.*(M[0]*X[:,0]+M[1]*X[:,1]+M[2]*X[:,2])*divr**5 )* X[:,2]  -  (divr**3)*M[2]
+    return ret
+
+
+def get_dipole_field(xyz):
+    # Xyz_D and returned b_D in SMG (SM) coordinates
+    b = np.empty(xyz.shape, dtype=np.float32)
+    r = np.sqrt(np.sum(xyz, axis=1))
+    DipoleStrength = 3.12e+4 #"dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
+    Term1      = DipoleStrength*xyz[:,2]*3/r**2
+    b[:, 0:2] = Term1[:,None]*xyz[:, 0:2]/r[:,None]**3
+    b[:, 2]    = (Term1*xyz[:,2]-DipoleStrength)/r**3
+    return b
+
 
 def write_BATSRUS_unstructured_grid_vtk(filetag, epsilon=None, use_ascii=False):
-    if isinstance(filetag, str):
-        bats_slice = batscls.return_class(filetag)
+    if isinstance(filetag, str):# todo check extenstion
+        bats_slice = batscls.get_class_from_native(filetag)
         outname = filetag
     else:
         bats_slice = filetag
@@ -47,6 +78,28 @@ def write_BATSRUS_unstructured_grid_vtk(filetag, epsilon=None, use_ascii=False):
             "array" : DA[vidx[sv],:,:,:,is_selected].ravel()
                         })
 
+    ####################################################################
+    time = (2019, 9, 2, 4, 10, 0)
+    #xyz_GSM = np.column_stack([x_blk.ravel(), y_blk.ravel(), z_blk.ravel()])
+    xyz_GSM = np.column_stack([DA[vidx['x'],:,:,:,is_selected].ravel(),
+                               DA[vidx['y'],:,:,:,is_selected].ravel(),
+                               DA[vidx['z'],:,:,:,is_selected].ravel()])
+    xyz_SMG = hx.transform(xyz_GSM, time, 'GSM', 'SM')
+    dip_SMG = B_dipole(xyz_SMG)
+    dip_GSM = hx.transform(dip_SMG, time, 'SM', 'GSM')
+
+    #print(np.count_nonzero(np.isnan(xyz_GSM)))
+    #print(np.count_nonzero(np.isnan(xyz_SMG)))
+    #print(np.count_nonzero(np.isnan(dip_SMG)))
+    #print(np.count_nonzero(np.isnan(dip_GSM)))
+
+    cell_data.append({
+        "name" : 'dipole',
+        "texture" : "VECTORS",
+        "array" : dip_GSM })
+    del time
+    ####################################################################
+
     nSelected = np.count_nonzero(is_selected)
     all_vertices = np.empty((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), dtype=np.float32)
     all_vertices[:,:] = np.nan
@@ -71,10 +124,10 @@ def write_BATSRUS_unstructured_grid_vtk(filetag, epsilon=None, use_ascii=False):
         all_vertices[startOfBlock:startOfBlock+(nI+1)*(nJ+1)*(nK+1), :] = grid
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
 
-    print(is_selected)
-    print(np.all(is_selected))
-    print(all_vertices)
-    print(np.count_nonzero(np.isnan(all_vertices)))
+    #print(is_selected)
+    #print(np.all(is_selected))
+    #print(all_vertices)
+    #print(np.count_nonzero(np.isnan(all_vertices)))
 
     unique_vertices, pointTo = np.unique(all_vertices,axis=0,return_inverse=True)
     assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
@@ -135,4 +188,4 @@ def write_BATSRUS_unstructured_grid_vtk(filetag, epsilon=None, use_ascii=False):
 
 
 if __name__ == '__main__':
-    write_BATSRUS_unstructured_grid_vtk('/tmp/3d__var_2_e20190902-041000-000')
+    write_BATSRUS_unstructured_grid_vtk('/tmp/3d__var_2_e20190902-041000-000', epsilon=None)
