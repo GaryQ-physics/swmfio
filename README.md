@@ -1,18 +1,23 @@
 # Overview
 
-Reads the `.out`, `.tree`, and `.info` files for the data from the (BATSRUS) magnetosphere component of an SWMF run and provides interpolator method.
+Reads the `.out`, `.tree`, and `.info` files for the data from the (BATSRUS) magnetosphere component of an SWMF run.
 
-Can also read CCMC `.cdf`, which contain the most of the information contained in the `.out`, `.tree`, and `.info` files.
+Can also read CCMC `.cdf`, which contain the most the information contained in the `.out`, `.tree`, and `.info` files.
+Doing so has the dependancy "cdflib" `https://pypi.org/project/cdflib/`
 
+Returns a numba class, with the simulation data in arrays as class atributes,
+and interpolation and differentiation as class methods.
 Also provides a function to output data on native grid (as an unstructured voxel or hexahedra grid) to a VTK file.
+
+Provides similar functionality to the Julia program `https://github.com/henry2004y/Batsrus.jl`
+with the exception that the VTK grid is cell-centered.
+In addition, this code has an interpolator and can read CCMC `.cdf` files.
 
 For example data files, see `http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/`.
 
-This code is used in https://github.com/GaryQ-physics/magnetopost to post process magnetosphere simulation data.
+This code is used in `https://github.com/GaryQ-physics/magnetopost` to post process magnetosphere simulation data.
 
 Requires Python 3.
-
-Provides similar functionality to the Julia program ... with the exception that the VTK grid is cell-centered. In addition, this code has an interpolator and can read CCMC `.cdf` files.
 
 # Install
 
@@ -28,11 +33,7 @@ cd swmf_file_reader
 pip install --editable .
 ```
 
-# Using
-
-## BATSRUS files
-
-### Overview
+# Background
 
 BATSRUS outputs consists of files: `3d_*.out`, `3d_*.tree`, `3d_*.info`
 
@@ -56,32 +57,47 @@ BATSRUS outputs consists of files: `3d_*.out`, `3d_*.tree`, `3d_*.info`
 `3d_*.info:`
 > text file containing nI,nJ,nK, and other meta data.
 
-### Usage
+# Usage
 
-```
-from swmf_file_reader.batsrus_class import return_class
-batsclass = return_class('/tmp/3d__var_2_e20190902-041000-000')
-```
+## BATSRUS datafiles example
 
-This returns a numba jit class, with the simulation data in arrays as class atributes, and interpolation and differentiation as class methods
-
-### Example
+Here we have files
+`/tmp/3d__var_2_e20190902-041000-000.out`,
+`/tmp/3d__var_2_e20190902-041000-000.tree`,
+`/tmp/3d__var_2_e20190902-041000-000.info`.
 
 ```
 filetag = '/tmp/3d__var_2_e20190902-041000-000'
 
-from swmf_file_reader.batsrus_class import return_class
-batsclass = return_class(filetag)
+from swmf_file_reader.batsrus_class import get_class_from_native
+batsclass = get_class_from_native(filetag)
 
 print( batsclass.data_arr.shape )
-print( batsclass.interpolate(np.array([1.,1.,1.), 'rho') )
+print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 ```
 
-## CDF files
+## CDF files example
 
+Here we have the file `/tmp/3d__var_1_t00000000_n0002500.out.cdf`
+
+```
+filename = '/tmp/3d__var_1_t00000000_n0002500.out.cdf'
+
+from swmf_file_reader.batsrus_class import get_class_from_cdf
+batsclass = get_class_from_cdf(filename)
+
+print( batsclass.data_arr.shape )
+print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
+print( batsclass.get_native_partial_derivatives(123456, 'rho') )
+```
 
 ## Export VTK file
+
+Here we have files
+`/tmp/3d__var_2_e20190902-041000-000.out`,
+`/tmp/3d__var_2_e20190902-041000-000.tree`,
+`/tmp/3d__var_2_e20190902-041000-000.info`.
 
 ```
 from swmf_file_reader.swmf2vtk import write_BATSRUS_unstructured_grid_vtk
