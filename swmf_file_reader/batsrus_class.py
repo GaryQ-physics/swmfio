@@ -1,7 +1,7 @@
 import numpy as np
 from swmf_file_reader.swmf_constants import Used_,Unused_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_
 from swmf_file_reader.read_batsrus import read_tree, read_data
-from swmf_file_reader import util
+from swmf_file_reader.util import unravel_index
 
 from numba import njit, types
 from numba.typed import Dict
@@ -268,7 +268,7 @@ class BatsrusClass:
         DA = self.DataArray
         nVar, nI, nJ, nK, nBlock = DA.shape
 
-        i,j,k,iBlockP = util.unravel_index(indx, (nI,nJ,nK,nBlock), order='F')
+        i,j,k,iBlockP = unravel_index(indx, (nI,nJ,nK,nBlock), order='F')
         assert(indx == i + nI*j + nI*nJ*k + nI*nJ*nK*iBlockP)#!!!
 
         partials = np.empty(3, dtype=np.float32)
@@ -449,9 +449,9 @@ def get_class_from_native(filetag):
 
 
 def get_class_from_cdf(filename):
-    import cdflib #!!!!!!!!!
+    import cdflib.cdfread as cdfread
     
-    cdf = cdflib.CDF(filename)
+    cdf = cdfread.CDF(filename)
     globatts = cdf.globalattsget()
 
     npts = int(globatts['number_of_cells'][0])
@@ -544,79 +544,6 @@ def get_class_from_cdf(filename):
                       )
     return batsclass
 
-def testing_cdf():
-    import cdflib
-    cdf = cdflib.CDF('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
-
-    assert(1968*8**3 == 1007616)
-    assert(1968 == cdf.varget('block_at_amr_level')[0,0])
-    assert(1968 == np.where(cdf.varget('block_amr_levels') == 0)[1][0])
-    assert(1968 == cdf.globalattsget()['number_of_blocks'])
-
-    for iNodeP in range(cdf.varget('block_amr_levels').size):
-        if iNodeP < 1968:
-            assert(cdf.varget('block_child_count')[0,iNodeP] == 0)
-        else:
-            assert(cdf.varget('block_child_count')[0,iNodeP] == 8)
-
-    print(cdf.varget('block_amr_levels')[0,1968])
-    
-    print(cdf.varget('block_child_id_1')[0,1968])
-    print(cdf.varget('block_child_id_2')[0,1968])
-    print(cdf.varget('block_child_id_3')[0,1968])
-    print(cdf.varget('block_child_id_4')[0,1968])
-    print(cdf.varget('block_child_id_5')[0,1968])
-    print(cdf.varget('block_child_id_6')[0,1968])
-    print(cdf.varget('block_child_id_7')[0,1968])
-    print(cdf.varget('block_child_id_8')[0,1968])
-    
-    print(cdf.varget('block_amr_levels')[0,1969])
-    print(cdf.varget('block_amr_levels')[0,1970])
-    print(cdf.varget('block_amr_levels')[0,1971])
-    print(cdf.varget('block_amr_levels')[0,1972])
-    print(cdf.varget('block_amr_levels')[0,1973])
-    print(cdf.varget('block_amr_levels')[0,1974])
-    print(cdf.varget('block_amr_levels')[0,1975])
-    print(cdf.varget('block_amr_levels')[0,1976])
-
-    print(cdf.varget('block_x_min')[0,1968])
-    print(cdf.varget('block_y_min')[0,1968])
-    print(cdf.varget('block_z_min')[0,1968])
-    print(cdf.varget('block_x_max')[0,1968])
-    print(cdf.varget('block_y_max')[0,1968])
-    print(cdf.varget('block_z_max')[0,1968])
-
-
-    print(cdf.varget('block_x_min')[0,1969])
-    print(cdf.varget('block_y_min')[0,1969])
-    print(cdf.varget('block_z_min')[0,1969])
-    print(cdf.varget('block_x_max')[0,1969])
-    print(cdf.varget('block_y_max')[0,1969])
-    print(cdf.varget('block_z_max')[0,1969])
-
-
-def test():
-    #cls = get_class_from_cdf('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
-    cls = get_class_from_native('/tmp/3d__var_2_e20190902-041000-000')
-    print(cls.varidx)
-    print(cls.data_arr)
-
-    onpoint = np.array([-146.,  -14.,  -14.])
-    offpoint = np.array([-143.,  -15.,  -15.])
-    print(cls.interpolate(onpoint, 'rho'))
-    print(cls.interpolate(onpoint, 'x'))
-    print(cls.interpolate(onpoint, 'y'))
-    print(cls.interpolate(onpoint, 'z'))
-    print(cls.interpolate(offpoint, 'rho'))
-    print(cls.interpolate(offpoint, 'x'))
-    print(cls.interpolate(offpoint, 'y'))
-    print(cls.interpolate(offpoint, 'z'))
-    print(cls.get_native_partial_derivatives(123456, 'rho'))
-    print(cls.get_native_partial_derivatives(125356, 'rho'))
-    print(cls.get_native_partial_derivatives(143456, 'rho'))
-    print(cls.get_native_partial_derivatives(143456, 'x'))
-    print(cls.get_native_partial_derivatives(143456, 'y'))
-    print(cls.get_native_partial_derivatives(143456, 'z'))
 
 if __name__ == '__main__':
     test()

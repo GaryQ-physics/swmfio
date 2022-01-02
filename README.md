@@ -1,14 +1,21 @@
 # Overview
 
-Reads the `.out`, `.tree`, and `.info` files for the data from the (BATSRUS) magnetosphere component of an SWMF run.
+Reads some of the outputed datafiles from an SWMF run.
+For the (BATSRUS) magnetosphere module, reads `.out`, `.tree`, and `.info` files.
+For the (RIM) ionosphere module, reads `.tec` files.
 
-Can also read CCMC `.cdf`, which contain the most the information contained in the `.out`, `.tree`, and `.info` files.
+Can also read CCMC `.cdf`, which contain the most the information contained in the native file formats.
 Doing so has the dependancy "cdflib" `https://pypi.org/project/cdflib/`
 
-Returns a numba class, with the simulation data in arrays as class atributes,
+For magnetosphere: returns a numba class, with the simulation data in arrays as class atributes,
 and interpolation and differentiation as class methods.
-Also provides a function to output data on native grid (as an unstructured voxel or hexahedra grid) to a VTK file.
+For ionosphere: returns tuple (data_arr, varidx, units),
+where data_arr is a numpy array with the data,
+varidx is a numba typed Dictionary which maps variable name strings to their corresponding index in data_arr,
+and units is a Dictionary of the corresponding units.
 
+This code also provides a function to output the magnetosphere (BATSRUS) data on native grid to a VTK file, as either an unstructured voxel or hexahedra grid.
+Doing so has dependancy on "magnetovis" `https://github.com/rweigel/magnetovis/`.
 Provides similar functionality to the Julia program `https://github.com/henry2004y/Batsrus.jl`
 with the exception that the VTK grid is cell-centered.
 In addition, this code has an interpolator and can read CCMC `.cdf` files.
@@ -32,6 +39,8 @@ git clone https://github.com/GaryQ-physics/swmf_file_reader.git
 cd swmf_file_reader
 pip install --editable .
 ```
+
+If you want cdf functionality need to also install `pip install cdflib`.
 
 # Background
 
@@ -57,15 +66,25 @@ BATSRUS outputs consists of files: `3d_*.out`, `3d_*.tree`, `3d_*.info`
 `3d_*.info:`
 > text file containing nI,nJ,nK, and other meta data.
 
+RIM output consists of file: `i_*.tec`
+> A text file, consisting of header with variable information,
+> and then the data in ASCII format.
+> The data consists of the value of the variables given on a 2d regular grid in latitude longitude.
+> The radius is fixed.
+
 # Usage
 
 ## BATSRUS datafiles example
 
-Here we have files
-`/tmp/3d__var_2_e20190902-041000-000.out`,
-`/tmp/3d__var_2_e20190902-041000-000.tree`,
-`/tmp/3d__var_2_e20190902-041000-000.info`.
+Download the demo files by running following in your shell.
+Warning, currently *not* secured by SSL.
+```
+wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/3d__var_2_e20190902-041000-000.info -P /tmp
+wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/3d__var_2_e20190902-041000-000.tree -P /tmp
+wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/3d__var_2_e20190902-041000-000.out -P /tmp
+```
 
+then run the following in python.
 ```
 filetag = '/tmp/3d__var_2_e20190902-041000-000'
 
@@ -77,9 +96,9 @@ print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 ```
 
-## CDF files example
+## Magnetosphere CDF file example
 
-Here we have the file `/tmp/3d__var_1_t00000000_n0002500.out.cdf`
+Download the file `wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/3d__var_1_t00000000_n0002500.out.cdf -P /tmp`
 
 ```
 filename = '/tmp/3d__var_1_t00000000_n0002500.out.cdf'
@@ -92,13 +111,49 @@ print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 ```
 
+## RIM datafile example
+
+Download the file `wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/i_e20190902-041100-000.tec -P /tmp`
+
+```
+filename = '/tmp/i_e20190902-041100-000.tec'
+
+from swmf_file_reader.read_ie_files import read_iono_tec
+data_arr, varidx, units = read_iono_tec(filename)
+
+print(data_arr.shape)
+print(varidx['SigmaP']) # Pedersen conductance
+
+print(data_arr[varidx['Theta'],:]) # the colatitudes
+print(data_arr[varidx['Psi'],:]) # the longitudes
+```
+
+## Ionosphere CDF file example
+Download the file `wget http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf -P /tmp`
+
+```
+filename = '/tmp/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
+
+from swmf_file_reader.read_ie_files import read_iono_cdf
+data_arr, varidx, units = read_iono_cdf(filename)
+
+print(data_arr.shape)
+print(varidx['SigmaP']) # Pedersen conductance
+
+print(data_arr[varidx['Theta'],:]) # the colatitudes
+print(data_arr[varidx['Psi'],:]) # the longitudes
+```
+
 ## Export VTK file
 
-Here we have files
+Here we already have files
 `/tmp/3d__var_2_e20190902-041000-000.out`,
 `/tmp/3d__var_2_e20190902-041000-000.tree`,
 `/tmp/3d__var_2_e20190902-041000-000.info`.
 
+To do this, you will need magnetovis installed, see `https://github.com/rweigel/magnetovis/`
+
+Run in python:
 ```
 from swmf_file_reader.swmf2vtk import write_BATSRUS_unstructured_grid_vtk
 filetag = '/tmp/3d__var_2_e20190902-041000-000'

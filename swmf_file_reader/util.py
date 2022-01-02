@@ -1,5 +1,14 @@
 import numpy as np
 from numba import njit
+import re
+
+def grep_dash_o(RE, lines):
+    ret = ''
+    for line in lines:
+        findall = re.findall(RE, line)
+        if findall != []:
+            ret = ret + '\n'.join(findall) + '\n'
+    return ret
 
 @njit
 def unravel_index(index, shape, order='C'):
