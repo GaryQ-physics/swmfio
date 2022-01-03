@@ -76,7 +76,7 @@ RIM output consists of file: `i_*.tec`
 
 # Usage
 
-## BATSRUS datafiles example
+## BATSRUS example
 
 Download the demo files by running following in your shell.
 
@@ -94,9 +94,11 @@ filetag = '/tmp/3d__var_2_e20190902-041000-000'
 from swmf_file_reader.batsrus_class import get_class_from_native
 batsclass = get_class_from_native(filetag)
 
+# Methods and attributes
+print(dir(batsclass))
+
 # Native grid
 print( batsclass.data_arr )
-print( batsclass.tree )
 print( batsclass.data_arr.shape )
 
 # Interpolate
@@ -106,7 +108,7 @@ print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 ```
 
-## Magnetosphere CDF file example
+## CCMC CDF example
 
 Download the demo file
 
