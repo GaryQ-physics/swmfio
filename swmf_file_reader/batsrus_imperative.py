@@ -1,5 +1,5 @@
 #####################
-# Depreciated
+# Depreciated; does not require Numba
 #########################
 
 from collections import namedtuple
