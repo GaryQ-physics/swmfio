@@ -1,26 +1,27 @@
 # Overview
 
-Reads some of the outputed datafiles from an SWMF run.
+Reads some magnetosphere and ionosphere data files from an SWMF run.
 For the (BATSRUS) magnetosphere module, reads `.out`, `.tree`, and `.info` files.
 For the (RIM) ionosphere module, reads `.tec` files.
 
-Can also read CCMC `.cdf`, which contain the most the information contained in the native file formats.
-Doing so has the dependancy "cdflib" `https://pypi.org/project/cdflib/`
+Can also read CCMC `.cdf` files, which contain the most the information contained in the native magnetosphere files. CDF files are read using [cdflib](`https://pypi.org/project/cdflib/`), which is not installed by default.
 
-For magnetosphere: returns a numba class, with the simulation data in arrays as class atributes,
+For BATSRUS: returns a Numba class, with the simulation data in arrays as class atributes,
 and interpolation and differentiation as class methods.
-For ionosphere: returns tuple (data_arr, varidx, units),
-where data_arr is a numpy array with the data,
-varidx is a numba typed Dictionary which maps variable name strings to their corresponding index in data_arr,
-and units is a Dictionary of the corresponding units.
+For RIM: returns a tuple `(data_arr, varidx, units)`,
+where `data_arr` is a numpy array with the data,
+`varidx` is a Numba typed Dictionary which maps variable name strings to their corresponding index in `data_arr`,
+and `units` is a Dictionary of the corresponding units.
 
 This code also provides a function to output the magnetosphere (BATSRUS) data on native grid to a VTK file, as either an unstructured voxel or hexahedra grid.
-Doing so has dependancy on "magnetovis" `https://github.com/rweigel/magnetovis/`.
-Provides similar functionality to the Julia program `https://github.com/henry2004y/Batsrus.jl`
-with the exception that the VTK grid is cell-centered.
-In addition, this code has an interpolator and can read CCMC `.cdf` files.
 
-For example data files, see `http://mag.gmu.edu/git-data/GaryQ-Physics/demodata/`.
+This package has a similar functionality to the Julia package [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl)
+with the exceptions that in `swmf_file_reader`
+* the VTK grid for  places the cell-centered data at the center of cells instead of at cell vertices.
+* there is an interpolator interface, and
+* CCMC `.cdf` files can be read.
+
+For example data files, see `http://mag.gmu.edu/git-data/swmf_file_reader/demodata/`.
 
 This code is used in `https://github.com/GaryQ-physics/magnetopost` to post process magnetosphere simulation data.
 
@@ -28,19 +29,20 @@ Requires Python 3.
 
 # Install
 
-for user:
+## User:
+
 ```
 pip install 'git+https://github.com/GaryQ-physics/swmf_file_reader.git' --upgrade
+# pip install cdfilb 
 ```
 
-for developer:
+## Developer:
 ```
 git clone https://github.com/GaryQ-physics/swmf_file_reader.git
 cd swmf_file_reader
 pip install --editable .
+# pip install cdfilb 
 ```
-
-If you want cdf functionality need to also install `pip install cdflib`.
 
 # Background
 
