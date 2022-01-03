@@ -25,9 +25,9 @@ For example data files, see `http://mag.gmu.edu/git-data/swmf_file_reader/demoda
 
 This code is used in `https://github.com/GaryQ-physics/magnetopost` to post process magnetosphere simulation data.
 
-Requires Python 3.
-
 # Install
+
+Requires Python 3.
 
 ## User:
 
