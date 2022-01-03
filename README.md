@@ -94,8 +94,15 @@ filetag = '/tmp/3d__var_2_e20190902-041000-000'
 from swmf_file_reader.batsrus_class import get_class_from_native
 batsclass = get_class_from_native(filetag)
 
+# Native grid
+print( batsclass.data_arr )
+print( batsclass.tree )
 print( batsclass.data_arr.shape )
+
+# Interpolate
 print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
+
+# Derived quantities
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 ```
 
