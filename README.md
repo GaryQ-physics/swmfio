@@ -88,7 +88,7 @@ wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20
 
 then run the following in Python.
 
-```
+```python
 filetag = '/tmp/3d__var_2_e20190902-041000-000'
 
 from swmf_file_reader.batsrus_class import get_class_from_native
@@ -107,7 +107,7 @@ Download the demo file
 wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_1_t00000000_n0002500.out.cdf
 ```
 
-```
+```python
 filename = '/tmp/3d__var_1_t00000000_n0002500.out.cdf'
 
 from swmf_file_reader.batsrus_class import get_class_from_cdf
@@ -126,7 +126,7 @@ Download the demo file
 wget  -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/i_e20190902-041100-000.tec
 ```
 
-```
+```python
 filename = '/tmp/i_e20190902-041100-000.tec'
 
 from swmf_file_reader.read_ie_files import read_iono_tec
@@ -147,7 +147,7 @@ Download the demo file
 wget  -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf
 ```
 
-```
+```python
 filename = '/tmp/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
 
 from swmf_file_reader.read_ie_files import read_iono_cdf
