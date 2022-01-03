@@ -79,14 +79,15 @@ RIM output consists of file: `i_*.tec`
 ## BATSRUS datafiles example
 
 Download the demo files by running following in your shell.
-Warning, currently *not* secured by SSL.
+
 ```
-wget http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.info -P /tmp
-wget http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.tree -P /tmp
-wget http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.out -P /tmp
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.info
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.tree
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.out
 ```
 
-then run the following in python.
+then run the following in Python.
+
 ```
 filetag = '/tmp/3d__var_2_e20190902-041000-000'
 
@@ -100,7 +101,11 @@ print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 
 ## Magnetosphere CDF file example
 
-Download the file `wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_1_t00000000_n0002500.out.cdf`
+Download the demo file
+
+```
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_1_t00000000_n0002500.out.cdf
+```
 
 ```
 filename = '/tmp/3d__var_1_t00000000_n0002500.out.cdf'
