@@ -21,9 +21,9 @@ with the exceptions that in `swmf_file_reader`
 * there is an interpolator interface, and
 * CCMC `.cdf` files can be read.
 
-For example data files, see `http://mag.gmu.edu/git-data/swmf_file_reader/demodata/`.
+For example data files, see [http://mag.gmu.edu/git-data/swmf_file_reader/demodata/](http://mag.gmu.edu/git-data/swmf_file_reader/demodata/).
 
-This code is used in `https://github.com/GaryQ-physics/magnetopost` to post process magnetosphere simulation data.
+This code is used in [https://github.com/GaryQ-physics/magnetopost](https://github.com/GaryQ-physics/magnetopost) to post process magnetosphere simulation data.
 
 # Install
 
