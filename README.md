@@ -78,53 +78,67 @@ RIM output consists of file: `i_*.tec`
 
 ## BATSRUS example
 
-Download the demo files by running following in your shell.
-
-```
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.info
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.tree
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_2_e20190902-041000-000.out
-```
-
-then run the following in Python.
+[demo_largefile.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_largefile.py):
 
 ```python
-filetag = '/tmp/3d__var_2_e20190902-041000-000'
-
+import numpy as np
+from urllib.request import urlretrieve
 from swmf_file_reader.batsrus_class import get_class_from_native
-batsclass = get_class_from_native(filetag)
 
-# Methods and attributes
+urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
+tmpdir = '/tmp/'
+filebase = '3d__var_2_e20190902-041000-000'
+
+for ext in ['.tree', '.info', '.out']:
+    print("Downloading " + urlbase + filebase + ext)
+    urlretrieve(urlbase + filebase + ext, tmpdir + filebase + ext)
+
+# Instantiate
+print("Reading " + tmpdir + filebase + ".*")
+batsclass = get_class_from_native(tmpdir + filebase)
+
+# Print methods and attributes
 print(dir(batsclass))
 
-# Native grid
-print( batsclass.data_arr )
+# Get data on native grid
 print( batsclass.data_arr.shape )
+# (5896192, 19)
 
 # Interpolate
 print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
+# 9.5159912109375
 
 # Derived quantities
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
+# [0.25239944 0.41480255 0.7658005 ]
 ```
 
 ## CCMC CDF example
 
-Download the demo file
+[demo_ccmc_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_ccmc_cdf.py):
 
 ```
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/3d__var_1_t00000000_n0002500.out.cdf
-```
-
-```python
-filename = '/tmp/3d__var_1_t00000000_n0002500.out.cdf'
-
+import numpy as np
+from urllib.request import urlretrieve
 from swmf_file_reader.batsrus_class import get_class_from_cdf
-batsclass = get_class_from_cdf(filename)
+
+urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
+tmpdir = '/tmp/'
+filename = '3d__var_1_t00000000_n0002500.out.cdf'
+
+print("Downloading " + urlbase + filename)
+urlretrieve(urlbase + filename, tmpdir + filename)
+
+batsclass = get_class_from_cdf(tmpdir + filename)
 
 print( batsclass.data_arr.shape )
+# (1007616, 20)
+
 print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
+# 28.0
+
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
+# [ 1.8113604  -0.00352001  2.1863403 ]
 ```
 
 ## RIM datafile example
