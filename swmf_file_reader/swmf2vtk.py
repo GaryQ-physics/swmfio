@@ -1,6 +1,6 @@
 import numpy as np
 import swmf_file_reader.batsrus_class as batscls
-from magnetovis.vtk_export import vtk_export
+from swmf_file_reader.vtk_export import vtk_export
 from hxform import hxform as hx
 
 
