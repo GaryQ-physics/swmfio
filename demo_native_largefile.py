@@ -1,4 +1,5 @@
 import numpy as np
+from os.path import exists
 from urllib.request import urlretrieve
 from swmf_file_reader.batsrus_class import get_class_from_native
 
@@ -7,8 +8,10 @@ tmpdir = '/tmp/'
 filebase = '3d__var_2_e20190902-041000-000'
 
 for ext in ['.tree', '.info', '.out']:
-    print("Downloading " + urlbase + filebase + ext)
-    urlretrieve(urlbase + filebase + ext, tmpdir + filebase + ext)
+    filename = tmpdir + filebase + ext
+    if not exists(filename):
+        print("Downloading " + urlbase + filebase + ext)
+        urlretrieve(urlbase + filebase + ext, tmpdir + filebase + ext)
 
 # Instantiate
 print("Reading " + tmpdir + filebase + ".*")

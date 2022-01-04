@@ -27,7 +27,7 @@ def read_tree(filetag):
 
     return iTree_IA, iRatio_D, nRoot_D, info
 
-    # ########################### check_thing_work #######################
+    # ########################### check_things_work #######################
     # # Maximum number of ghost cells set by Config.pl script.
     # # Valid values are 0,1,2,3,4,5
     # nG = 2

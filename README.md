@@ -76,41 +76,11 @@ RIM output consists of file: `i_*.tec`
 
 # Usage
 
-## BATSRUS example
+## BATSRUS `.out`example
 
 [demo_largefile.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_largefile.py):
 
 ```python
-import numpy as np
-from urllib.request import urlretrieve
-from swmf_file_reader.batsrus_class import get_class_from_native
-
-urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
-tmpdir = '/tmp/'
-filebase = '3d__var_2_e20190902-041000-000'
-
-for ext in ['.tree', '.info', '.out']:
-    print("Downloading " + urlbase + filebase + ext)
-    urlretrieve(urlbase + filebase + ext, tmpdir + filebase + ext)
-
-# Instantiate
-print("Reading " + tmpdir + filebase + ".*")
-batsclass = get_class_from_native(tmpdir + filebase)
-
-# Print methods and attributes
-print(dir(batsclass))
-
-# Get data on native grid
-print( batsclass.data_arr.shape )
-# (5896192, 19)
-
-# Interpolate
-print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
-# 9.5159912109375
-
-# Derived quantities
-print( batsclass.get_native_partial_derivatives(123456, 'rho') )
-# [0.25239944 0.41480255 0.7658005 ]
 ```
 
 ## CCMC CDF example
@@ -118,30 +88,9 @@ print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 [demo_ccmc_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_ccmc_cdf.py):
 
 ```
-import numpy as np
-from urllib.request import urlretrieve
-from swmf_file_reader.batsrus_class import get_class_from_cdf
-
-urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
-tmpdir = '/tmp/'
-filename = '3d__var_1_t00000000_n0002500.out.cdf'
-
-print("Downloading " + urlbase + filename)
-urlretrieve(urlbase + filename, tmpdir + filename)
-
-batsclass = get_class_from_cdf(tmpdir + filename)
-
-print( batsclass.data_arr.shape )
-# (1007616, 20)
-
-print( batsclass.interpolate(np.array([1.,1.,1.]), 'rho') )
-# 28.0
-
-print( batsclass.get_native_partial_derivatives(123456, 'rho') )
-# [ 1.8113604  -0.00352001  2.1863403 ]
 ```
 
-## RIM datafile example
+## RIM example
 
 Download the demo file
 
@@ -162,7 +111,7 @@ print(data_arr[varidx['Theta'],:]) # the colatitudes
 print(data_arr[varidx['Psi'],:]) # the longitudes
 ```
 
-## Ionosphere CDF file example
+## Ionosphere CCMC CDF example
 
 Download the demo file
 
@@ -185,18 +134,7 @@ print(data_arr[varidx['Psi'],:]) # the longitudes
 
 ## Export VTK file
 
-Here we already have files
-`/tmp/3d__var_2_e20190902-041000-000.out`,
-`/tmp/3d__var_2_e20190902-041000-000.tree`,
-`/tmp/3d__var_2_e20190902-041000-000.info`.
-
-To do this, you will need magnetovis installed, see `https://github.com/rweigel/magnetovis/`
-
-Run in python:
-```
-from swmf_file_reader.swmf2vtk import write_BATSRUS_unstructured_grid_vtk
-filetag = '/tmp/3d__var_2_e20190902-041000-000'
-write_BATSRUS_unstructured_grid_vtk(filetag, use_ascii=False)
+```python
 ```
 
 This will create `/tmp/3d__var_2_e20190902-041000-000.vtk`
