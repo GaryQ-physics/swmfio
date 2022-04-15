@@ -10,9 +10,12 @@ filebase = '3d__var_2_e20190902-041000-000'
 for ext in ['.tree', '.info', '.out']:
     filename = tmpdir + filebase + ext
     if not exists(filename):
-        print("Downloading " + urlbase + filebase + ext)
-        urlretrieve(urlbase + filebase + ext, filename)
+        print("Downloading " + urlbase + filename)
+        print("to")
+        print(tmpdir + filename)
+        urlretrieve(urlbase + filename, tmpdir + filename)
 
 filebase = tmpdir + filebase
-print("Reading {}.*".format(filebase))
-write_BATSRUS_unstructured_grid_vtk(filebase)
+print(f"Writing {filebase}")
+write_BATSRUS_unstructured_grid_vtk(filebase, debug=True)
+print(f"Wrote {filebase}")

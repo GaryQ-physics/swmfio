@@ -400,7 +400,7 @@ def get_class_from_native(filetag):
         z_range = zGlobalMax - zGlobalMin
 
         iLevel = iTree_IA[F2P(Level_), iNodeP]
-        assert(nI == nJ == nK)#!!!!
+        assert(nI == nJ == nK) #!!!!
         assert(x_range == y_range == z_range)
         gridspacing = (x_range/nI)*0.5**iLevel
 
@@ -454,11 +454,11 @@ def get_class_from_cdf(filename):
     cdf = cdfread.CDF(filename)
     globatts = cdf.globalattsget()
 
-    npts = int(globatts['number_of_cells'][0])
-    nBlock = int(globatts['number_of_blocks'][0])
-    nI = int(globatts['special_parameter_NX'][0])
-    nJ = int(globatts['special_parameter_NY'][0])
-    nK = int(globatts['special_parameter_NZ'][0])
+    npts = int(globatts['number_of_cells'])
+    nBlock = int(globatts['number_of_blocks'])
+    nI = int(globatts['special_parameter_NX'])
+    nJ = int(globatts['special_parameter_NY'])
+    nK = int(globatts['special_parameter_NZ'])
     assert( nBlock*nI*nJ*nK == npts )
 
     nNode = cdf.varget('block_amr_levels').size
@@ -512,28 +512,28 @@ def get_class_from_cdf(filename):
     block_child_ids = np.array(P2F(block_child_ids), dtype=np.int32)
 
     batsclass = BatsrusClass(
-                      nDim              = globatts['grid_system_1_number_of_dimensions'][0],
+                      nDim              = globatts['grid_system_1_number_of_dimensions'],
                       nI                = nI,
                       nJ                = nJ,
                       nK                = nK,
-                      xGlobalMin        = globatts['global_x_min'][0],
-                      yGlobalMin        = globatts['global_y_min'][0],
-                      zGlobalMin        = globatts['global_z_min'][0],
-                      xGlobalMax        = globatts['global_x_max'][0],
-                      yGlobalMax        = globatts['global_y_max'][0],
-                      zGlobalMax        = globatts['global_z_max'][0],
+                      xGlobalMin        = globatts['global_x_min'],
+                      yGlobalMin        = globatts['global_y_min'],
+                      zGlobalMin        = globatts['global_z_min'],
+                      xGlobalMax        = globatts['global_x_max'],
+                      yGlobalMax        = globatts['global_y_max'],
+                      zGlobalMax        = globatts['global_z_max'],
 
                       rootnode          = P2F( cdf.varget('block_at_amr_level')[0,0] ),
-                      block_parent_id   = cdf.varget('block_parent_id')[0,:]   ,
+                      block_parent_id   = cdf.varget('block_parent_id')[0,:],
                       block_child_ids   = block_child_ids,
-                      block_amr_levels  = np.array(cdf.varget('block_amr_levels')[0,:], dtype=np.int32)  ,
-                      block_x_min       = cdf.varget('block_x_min')[0,:]       ,
-                      block_y_min       = cdf.varget('block_y_min')[0,:]       ,
-                      block_z_min       = cdf.varget('block_z_min')[0,:]       ,
-                      block_x_max       = cdf.varget('block_x_max')[0,:]       ,
-                      block_y_max       = cdf.varget('block_y_max')[0,:]       ,
-                      block_z_max       = cdf.varget('block_z_max')[0,:]       ,
-                      block_child_count = np.array(cdf.varget('block_child_count')[0,:], dtype=np.int8) ,
+                      block_amr_levels  = np.array(cdf.varget('block_amr_levels')[0,:], dtype=np.int32),
+                      block_x_min       = cdf.varget('block_x_min')[0,:],
+                      block_y_min       = cdf.varget('block_y_min')[0,:],
+                      block_z_min       = cdf.varget('block_z_min')[0,:],
+                      block_x_max       = cdf.varget('block_x_max')[0,:],
+                      block_y_max       = cdf.varget('block_y_max')[0,:],
+                      block_z_max       = cdf.varget('block_z_max')[0,:],
+                      block_child_count = np.array(cdf.varget('block_child_count')[0,:], dtype=np.int8),
 
                       data_arr          = data_arr     ,
                       DataArray         = DataArray    ,
@@ -543,8 +543,3 @@ def get_class_from_cdf(filename):
                       node2block        = node2block   ,
                       )
     return batsclass
-
-
-if __name__ == '__main__':
-    test()
-    #testing_cdf()

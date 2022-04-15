@@ -4,7 +4,7 @@ import numpy as np
 def cleanUponError(writefile):
     def clean_writefile(*args, **kwargs):
         if os.path.exists(args[0]) and ('debug' in kwargs.keys()) and kwargs['debug']:
-            print(f'warning: overwiting existing {args[0]}')
+            print(f'Warning: Overwriting existing {args[0]}')
 
         try:
             writefile(*args, **kwargs)
@@ -22,7 +22,7 @@ def vtk_export(out_filename, points,
                     cell_data = None,
                     title='Title',
                     ftype='BINARY',
-                    debug=True):
+                    debug=False):
     """
     Parameters
     ----------
@@ -193,4 +193,3 @@ def vtk_export(out_filename, points,
     f.close()
     if debug:
         print("Wrote " + out_filename)
-        print("Open in ParaView on command line using magnetovis.sh --data=" + out_filename)

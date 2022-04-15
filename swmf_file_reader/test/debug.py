@@ -197,25 +197,30 @@ def testing_cdf():
     print(cdf.varget('block_z_max')[0,1969])
 
 
+
 def test():
-    #cls = get_class_from_cdf('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')
     cls = get_class_from_native('/tmp/3d__var_2_e20190902-041000-000')
-    print(cls.varidx)
-    print(cls.data_arr)
+    #print(cls.varidx)
+    #print(cls.data_arr)
 
     onpoint = np.array([-146.,  -14.,  -14.])
     offpoint = np.array([-143.,  -15.,  -15.])
+
     print(cls.interpolate(onpoint, 'rho'))
     print(cls.interpolate(onpoint, 'x'))
     print(cls.interpolate(onpoint, 'y'))
     print(cls.interpolate(onpoint, 'z'))
+
     print(cls.interpolate(offpoint, 'rho'))
     print(cls.interpolate(offpoint, 'x'))
     print(cls.interpolate(offpoint, 'y'))
     print(cls.interpolate(offpoint, 'z'))
+
     print(cls.get_native_partial_derivatives(123456, 'rho'))
     print(cls.get_native_partial_derivatives(125356, 'rho'))
     print(cls.get_native_partial_derivatives(143456, 'rho'))
     print(cls.get_native_partial_derivatives(143456, 'x'))
     print(cls.get_native_partial_derivatives(143456, 'y'))
     print(cls.get_native_partial_derivatives(143456, 'z'))
+
+test_read()

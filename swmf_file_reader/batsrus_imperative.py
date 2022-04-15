@@ -1,10 +1,9 @@
-#####################
-# Depreciated; does not require Numba
-#########################
+# Depreciated; first draft of code. Does not require Numba.
+# Not tested recently.
 
 from collections import namedtuple
 import numpy as np
-from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_,ROOTNODE_
+from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Child1_,Coord1_,CoordLast_,ROOTNODE_
 from swmf_file_reader.read_batsrus import read_tree_file, read_out_file
 from swmf_file_reader import util
 
@@ -12,7 +11,7 @@ try:
     from numba import njit, types
     from numba.typed import Dict
 except:
-    print("\n\nWARNING: numba couldn't be imported\n\n")
+    print("\n\nWARNING: Numba couldn't be imported.\n\n")
     # construct a trivial decorator for njit 
     def njit(foo):
         return foo
