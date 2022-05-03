@@ -1,7 +1,11 @@
 import numpy as np
 from os.path import exists
 from urllib.request import urlretrieve
-from swmf_file_reader.batsrus_class import get_class_from_cdf
+
+from timeit import default_timer as timer
+from datetime import timedelta
+
+import swmf_file_reader as swmf
 
 urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
 tmpdir = '/tmp/'
@@ -13,7 +17,10 @@ if not exists(tmpdir + filename):
     print(tmpdir + filename)
     urlretrieve(urlbase + filename, tmpdir + filename)
 
-batsclass = get_class_from_cdf(tmpdir + filename)
+start = timer()
+batsclass = swmf.read_batsrus(tmpdir + filename)
+end = timer()
+print("Read time: {}".format(timedelta(seconds=end-start)))
 
 assert batsclass.data_arr.shape == (5896192, 19)
 
@@ -27,9 +34,17 @@ print(f'x={x}, y={y}, z={z}; rho={rho}')
 # x=-71.25, y=-15.75, z=-7.75; rho=4.228740215301514
 
 # Get interpolated value at a native grid point
+start = timer()
 rhoi = batsclass.interpolate(np.array([x, y, z]), 'rho')
-
 assert rho == rhoi
+end = timer()
+print("Interpolation time: {}".format(timedelta(seconds=end-start)))
+
+# Get interpolated value at a non-native grid point
+start = timer()
+rhoi = batsclass.interpolate(np.array([x+0.01, y+0.01, z+0.01]), 'rho')
+end = timer()
+print("Interpolation time: {}".format(timedelta(seconds=end-start)))
 
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
 # [0.25239944 0.41480255 0.7658005 ]

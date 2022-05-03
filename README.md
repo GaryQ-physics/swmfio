@@ -12,11 +12,11 @@ For RIM files, returns a tuple `(data_arr, varidx, units)`, where `data_arr` is 
 
 `swmf_file_reader` also provides a function to output the magnetosphere (BATSRUS) data on native grid to a VTK file, as either an unstructured voxel or hexahedra grid.
 
-This package has a similar functionality to the Julia package [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl)
+This package has a similar functionality to the Julia package [`Batsrus.jl`](https://github.com/henry2004y/Batsrus.jl)
 with the exceptions that in `swmf_file_reader`
 * there is an interpolator interface,
-* CCMC `.cdf` files can be read, and
-* the VTK output file has the cell-centered data at the center of cells instead of at cell vertices.
+* [Kameleon/CCMC](https://ccmc.gsfc.nasa.gov/Kameleon/) `.cdf` files can be read, and
+* the VTK output file has the cell-centered data at the center of cells [instead of at cell vertices](https://github.com/henry2004y/Batsrus.jl/issues/3).
 
 For example data files, see [http://mag.gmu.edu/git-data/swmf_file_reader/demodata/](http://mag.gmu.edu/git-data/swmf_file_reader/demodata/).
 
@@ -62,7 +62,7 @@ pip install --editable .
 Download the demo file
 
 ```
-wget  -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/i_e20190902-041100-000.tec
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/i_e20190902-041100-000.tec
 ```
 
 then
@@ -75,9 +75,10 @@ data_arr, varidx, units = read_iono_tec(filename)
 
 print(data_arr.shape)
 print(varidx['SigmaP']) # Pedersen conductance
+print(varidx['SigmaH']) # Hall conductance
 
-print(data_arr[varidx['Theta'],:]) # the colatitudes
-print(data_arr[varidx['Psi'],:]) # the longitudes
+print(data_arr[varidx['Theta'],:]) # colatitudes
+print(data_arr[varidx['Psi'],:])   # longitudes
 ```
 
 ## RIM `.cdf`
@@ -85,7 +86,7 @@ print(data_arr[varidx['Psi'],:]) # the longitudes
 Download the demo file
 
 ```
-wget  -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf
+wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf
 ```
 
 then
@@ -105,6 +106,8 @@ print(data_arr[varidx['Psi'],:]) # the longitudes
 
 # Motivation
 
+This code was developed in support of the paper [Blake et al., 2021, Recreating the Horizontal Magnetic Field at Colaba During the Carrington Event With Geospace Simulations](https://doi.org/10.1029/2020SW002585).
+
 Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which make interpolation (needed for field line tracing) very slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). Finally, [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
 
 # File Notes
@@ -122,3 +125,10 @@ BATSRUS output consists of files: `3d_*.out`, `3d_*.tree`, `3d_*.info`
 
 RIM output consists of files: `i_*.tec`:
 > A text file, consisting of header with variable information, and then the data in ASCII format. The data consists of the value of the variables given on a 2d regular grid in latitude longitude. The radius is fixed.
+
+# Acknowledgments
+
+This work was in part supported by NASA Grant 80NSSC20K0589 "Physics-based modeling of the magnetosphere-ionosphere system under Carrington-scale solar driving: response modes, missing physics and uncertainty estimates", PI: Antti Pulkkinen and the subaward "Ground Magnetic Field Perturbations under Extreme Space Weather Conditions", PI: R.S. Weigel.
+
+Hongyang Zhou, the develeoper of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl).
+

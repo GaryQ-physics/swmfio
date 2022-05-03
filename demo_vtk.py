@@ -1,7 +1,7 @@
 from os.path import exists
 from urllib.request import urlretrieve
 
-from swmf_file_reader.swmf2vtk import write_BATSRUS_unstructured_grid_vtk
+import swmf_file_reader as swmf
 
 urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
 tmpdir = '/tmp/'
@@ -15,7 +15,4 @@ for ext in ['.tree', '.info', '.out']:
         print(tmpdir + filename)
         urlretrieve(urlbase + filename, tmpdir + filename)
 
-filebase = tmpdir + filebase
-print(f"Writing {filebase}")
-write_BATSRUS_unstructured_grid_vtk(filebase, debug=True)
-print(f"Wrote {filebase}")
+swmf.write_vtk(tmpdir + filebase, debug=True)

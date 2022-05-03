@@ -27,33 +27,29 @@ def F2P(fortran_index):
 def P2F(python_index):
     return python_index + 1
 
-#            ('iRatio_D'  , types.int32[:]                                 ),
-#            ('nRoot_D'   , types.int32[:]                                 ),
-#            ('nInfo'     , types.int32                                    ),
-
 spec = [
-            ('nDim'      , types.int32                                    ),
-            ('nI'        , types.int32                                    ),
-            ('nJ'        , types.int32                                    ),
-            ('nK'        , types.int32                                    ),
-            ('xGlobalMin', types.float32                                  ),
-            ('yGlobalMin', types.float32                                  ),
-            ('zGlobalMin', types.float32                                  ),
-            ('xGlobalMax', types.float32                                  ),
-            ('yGlobalMax', types.float32                                  ),
-            ('zGlobalMax', types.float32                                  ),
+            ('nDim'      , types.int32    ),
+            ('nI'        , types.int32    ),
+            ('nJ'        , types.int32    ),
+            ('nK'        , types.int32    ),
+            ('xGlobalMin', types.float32  ),
+            ('yGlobalMin', types.float32  ),
+            ('zGlobalMin', types.float32  ),
+            ('xGlobalMax', types.float32  ),
+            ('yGlobalMax', types.float32  ),
+            ('zGlobalMax', types.float32  ),
 
             ('rootnode'   , types.int32  ),
-            ('block_parent_id'   , types.int32[:] ),
+            ('block_parent_id'   , types.int32[:]   ),
             ('block_child_ids'   , types.int32[:,:] ),
-            ('block_amr_levels'  , types.int32[:] ),
+            ('block_amr_levels'  , types.int32[:]   ),
             ('block_x_min'       , types.float32[:] ),
             ('block_y_min'       , types.float32[:] ),
             ('block_z_min'       , types.float32[:] ),
             ('block_x_max'       , types.float32[:] ),
             ('block_y_max'       , types.float32[:] ),
             ('block_z_max'       , types.float32[:] ),
-            ('block_child_count' , types.int8[:] ),
+            ('block_child_count' , types.int8[:]    ),
 
             ('data_arr'  , types.float32[:,:]                             ),
             ('DataArray' , types.float32[:,:,:,:,:]                       ),
@@ -61,11 +57,15 @@ spec = [
 
             ('block2node', types.int32[:]                               ),
             ('node2block', types.int32[:]                               ),
-            ]
+        ]
 
+#            ('iRatio_D'  , types.int32[:]                                 ),
+#            ('nRoot_D'   , types.int32[:]                                 ),
+#            ('nInfo'     , types.int32                                    ),
 
 @jitclass(spec)
 class BatsrusClass:
+
     def __init__(self,
                     nDim      ,
                     nI        ,
@@ -97,10 +97,10 @@ class BatsrusClass:
                     block2node   ,
                     node2block   ):
 
-        self.nDim              = nDim      
-        self.nI                = nI        
-        self.nJ                = nJ        
-        self.nK                = nK        
+        self.nDim              = nDim
+        self.nI                = nI
+        self.nJ                = nJ
+        self.nK                = nK
         self.xGlobalMin        = xGlobalMin
         self.yGlobalMin        = yGlobalMin
         self.zGlobalMin        = zGlobalMin
@@ -109,23 +109,23 @@ class BatsrusClass:
         self.zGlobalMax        = zGlobalMax
 
         self.rootnode          = rootnode
-        self.block_parent_id   = block_parent_id   
-        self.block_child_ids   = block_child_ids   
-        self.block_amr_levels  = block_amr_levels  
-        self.block_x_min       = block_x_min       
-        self.block_y_min       = block_y_min       
-        self.block_z_min       = block_z_min       
-        self.block_x_max       = block_x_max       
-        self.block_y_max       = block_y_max       
-        self.block_z_max       = block_z_max       
+        self.block_parent_id   = block_parent_id
+        self.block_child_ids   = block_child_ids
+        self.block_amr_levels  = block_amr_levels
+        self.block_x_min       = block_x_min
+        self.block_y_min       = block_y_min
+        self.block_z_min       = block_z_min
+        self.block_x_max       = block_x_max
+        self.block_y_max       = block_y_max
+        self.block_z_max       = block_z_max
         self.block_child_count = block_child_count 
 
-        self.data_arr          = data_arr     
-        self.DataArray         = DataArray    
-        self.varidx            = varidx       
+        self.data_arr          = data_arr
+        self.DataArray         = DataArray
+        self.varidx            = varidx
 
-        self.block2node        = block2node   
-        self.node2block        = node2block   
+        self.block2node        = block2node
+        self.node2block        = node2block
 
         # map blocks and nodes
         for iBlockP in range(block2node.size):
@@ -143,12 +143,13 @@ class BatsrusClass:
 
 
     def find_tree_node(self, point):
+
         xin = self.xGlobalMin <= point[0] <= self.xGlobalMax
         yin = self.yGlobalMin <= point[1] <= self.yGlobalMax
         zin = self.zGlobalMin <= point[2] <= self.zGlobalMax
 
         if not (xin and yin and zin): 
-            raise RuntimeError ('point out of simulation volume')
+            raise RuntimeError('point out of simulation volume')
 
         iNode = self.rootnode
         while(True):
@@ -170,6 +171,7 @@ class BatsrusClass:
 
 
     def interpolate(self, point, var):
+
         _x = self.varidx['x']
         _y = self.varidx['y']
         _z = self.varidx['z']
@@ -301,6 +303,7 @@ class BatsrusClass:
         return partials
 
 
+
 def get_class_from_native(filetag):
     iTree_IA, iRatio_D, nRoot_D, info = read_tree(filetag)
     data_arr, variables = read_data(filetag)
@@ -414,7 +417,7 @@ def get_class_from_native(filetag):
 
 
     batsclass = BatsrusClass(
-                      nDim              = 3      ,
+                      nDim              = 3         ,
                       nI                = nI        ,
                       nJ                = nJ        ,
                       nK                = nK        ,
@@ -449,8 +452,9 @@ def get_class_from_native(filetag):
 
 
 def get_class_from_cdf(filename):
+
     import cdflib.cdfread as cdfread
-    
+
     cdf = cdfread.CDF(filename)
     globatts = cdf.globalattsget()
 
@@ -465,10 +469,7 @@ def get_class_from_cdf(filename):
     block2node = -np.ones((nBlock,), dtype=np.int32)
     node2block = -np.ones((nNode,), dtype=np.int32)
 
-    varidx = Dict.empty(
-        key_type=types.unicode_type,
-        value_type=types.int64,
-        )
+    varidx = Dict.empty(key_type=types.unicode_type, value_type=types.int64,)
     units = {}
 
     nVar = 0

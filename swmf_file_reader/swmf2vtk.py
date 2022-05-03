@@ -2,7 +2,7 @@ import numpy as np
 import swmf_file_reader.batsrus_class as batscls
 from swmf_file_reader.vtk_export import vtk_export
 
-def write_BATSRUS_unstructured_grid_vtk(filetag, debug=False, epsilon=None, use_ascii=False):
+def write(filetag, debug=False, epsilon=None, use_ascii=False):
 
     if isinstance(filetag, str): # TODO: Check extenstion
         if debug:
@@ -146,6 +146,5 @@ def write_BATSRUS_unstructured_grid_vtk(filetag, debug=False, epsilon=None, use_
                     debug=debug)
 
 
-
 if __name__ == '__main__':
-    write_BATSRUS_unstructured_grid_vtk('/tmp/3d__var_2_e20190902-041000-000', epsilon=None)
+    write('/tmp/3d__var_2_e20190902-041000-000', epsilon=None)
