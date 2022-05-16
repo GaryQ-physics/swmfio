@@ -20,4 +20,4 @@ def read_rim(file):
 
 def write_vtk(file, **kwargs):
     from swmf_file_reader import swmf2vtk
-    swmf2vtk(file, **kwargs)
+    swmf2vtk.write(file, **kwargs)

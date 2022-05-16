@@ -12,9 +12,7 @@ if not exists(tmpdir + filename):
     print(tmpdir + filename)
     urlretrieve(urlbase + filename, tmpdir + filename)
 
-filename = '/tmp/i_e20190902-041100-000.tec'
-
-data_arr, varidx, units = swmf.read_rim(filename)
+data_arr, varidx, units = swmf.read_rim(tmpdir + filename)
 
 print(varidx)
 # {X: 0, Y: 1, Z: 2, 

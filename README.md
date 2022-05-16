@@ -59,50 +59,11 @@ pip install --editable .
 
 ## RIM `.tec`
 
-Download the demo file
-
-```
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/i_e20190902-041100-000.tec
-```
-
-then
-
-```python
-filename = '/tmp/i_e20190902-041100-000.tec'
-
-from swmf_file_reader.read_ie_files import read_iono_tec
-data_arr, varidx, units = read_iono_tec(filename)
-
-print(data_arr.shape)
-print(varidx['SigmaP']) # Pedersen conductance
-print(varidx['SigmaH']) # Hall conductance
-
-print(data_arr[varidx['Theta'],:]) # colatitudes
-print(data_arr[varidx['Psi'],:])   # longitudes
-```
+[demo_rim_tec.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_rim_tec.py)
 
 ## RIM `.cdf`
 
-Download the demo file
-
-```
-wget -P /tmp http://mag.gmu.edu/git-data/swmf_file_reader/demodata/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf
-```
-
-then
-
-```python
-filename = '/tmp/SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
-
-from swmf_file_reader.read_ie_files import read_iono_cdf
-data_arr, varidx, units = read_iono_cdf(filename)
-
-print(data_arr.shape)
-print(varidx['SigmaP']) # Pedersen conductance
-
-print(data_arr[varidx['Theta'],:]) # the colatitudes
-print(data_arr[varidx['Psi'],:]) # the longitudes
-```
+[demo_rim_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_rim_cdf.py)
 
 # Motivation
 

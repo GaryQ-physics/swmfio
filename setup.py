@@ -8,6 +8,6 @@ setup(
     author='Gary Quaresima, Bob Weigel',
     author_email='garyquaresima@gmail.com,rweigel@gmu.edu',
     packages=find_packages(),
-    description='Fast read and interpolation of SWMF native .out and CCMC .cdf files',
+    description='Fast read and interpolation of SWMF/BATSRUS native .out and CCMC .cdf files. Also reads SWMF/RIM .tec and .cdf files.',
     install_requires=install_requires
 )
