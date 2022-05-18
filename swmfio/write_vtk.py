@@ -1,22 +1,23 @@
 import numpy as np
-import swmf_file_reader.batsrus_class as batscls
-from swmf_file_reader.vtk_export import vtk_export
+import swmfio.batsrus_class as batscls
+from swmfio.vtk_export import vtk_export
 
-def write(filetag, debug=False, epsilon=None, use_ascii=False):
+def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
-    if isinstance(filetag, str): # TODO: Check extenstion
-        if debug:
-            print("Reading {}.*".format(filetag))
+    if logger is None:
+        import logging
+        logger = logging.logging()
+
+    if isinstance(filetag, str): # TODO: Check extension?
+        logger.info("Reading {}.*".format(filetag))
         bats_slice = batscls.get_class_from_native(filetag)
-        if debug:
-            print("Read {}.*".format(filetag))
+        logger.info("Read {}.*".format(filetag))
         outname = filetag
     else:
         bats_slice = filetag
         outname = '/tmp/write_BATSRUS_unstructured_grid_vtk'
 
-    if debug:
-        print("Creating VTK data structure")
+    logger.info("Creating VTK data structure.")
 
     DA = bats_slice.DataArray
     vidx = bats_slice.varidx
@@ -25,6 +26,10 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
     nJ = bats_slice.nJ
     nK = bats_slice.nK
     nBlock = bats_slice.block2node.size
+
+    logger.debug("(nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
+    logger.debug("nBlock = {0:d}".format(nBlock))
+
     nVar = len(bats_slice.varidx)
 
     assert(DA.shape == (nVar, nI, nJ, nK, nBlock))
@@ -33,34 +38,58 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
     x_blk = DA[vidx['x'],:,:,:,:]
     y_blk = DA[vidx['y'],:,:,:,:]
     z_blk = DA[vidx['z'],:,:,:,:]
+    
+    is_selected = np.full(nBlock, True, dtype=bool)
 
-    is_selected = np.empty(nBlock, dtype=bool)
-    is_selected[:] = True
     if epsilon is not None:
         is_selected = epsilon == x_blk[1,0,0, :] - x_blk[0,0,0, :]
 
+    if blocks is not None:
+        blocks = np.array(blocks)
+        is_selected[:] = False
+        is_selected[blocks] = True
+
     cell_data = []
     for vv in ['b','j','u','b1']:
-        cell_data.append({
-            "name" : vv,
-            "texture" : "VECTORS",
-            "array" : np.column_stack([DA[vidx[vv+'x'],:,:,:,is_selected].ravel(),
-                                       DA[vidx[vv+'y'],:,:,:,is_selected].ravel(),
-                                       DA[vidx[vv+'z'],:,:,:,is_selected].ravel()])
-                        })
+        cell_data.append(
+            {
+                "name" : vv,
+                "texture" : "VECTORS",
+                "array" : np.column_stack([DA[vidx[vv+'x'],:,:,:,is_selected].ravel(),
+                                           DA[vidx[vv+'y'],:,:,:,is_selected].ravel(),
+                                           DA[vidx[vv+'z'],:,:,:,is_selected].ravel()])
+            })
     for sv in ['rho','p', 'measure']:
-        cell_data.append({
-            "name" : sv,
-            "texture" : "SCALARS",
-            "array" : DA[vidx[sv],:,:,:,is_selected].ravel()
-                        })
+        cell_data.append(
+            {
+                "name" : sv,
+                "texture" : "SCALARS",
+                "array" : DA[vidx[sv],:,:,:,is_selected].ravel()
+            })
 
     nSelected = np.count_nonzero(is_selected)
-    all_vertices = np.empty((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), dtype=np.float32)
-    all_vertices[:,:] = np.nan
+
+    logger.debug("nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
+
+    block_id = np.full(nSelected*(nI)*(nJ)*(nK), -1, dtype=np.float32)
+
+    all_vertices = np.full((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), np.nan, dtype=np.float32)
     startOfBlock = 0
+    logger.info("Creating block grids and start indices.")
     for iBlockP in range(nBlock):
-        if not is_selected[iBlockP]: continue
+
+        logger.debug(f"  Creating grid for block #{iBlockP+1}/{nBlock+1}")
+
+        if blocks is not None and iBlockP > blocks[-1]:
+            logger.debug("  iBlockP > blocks[-1]. Done.")
+            break
+
+        if not is_selected[iBlockP]:
+            logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
+            continue
+
+        block_id[startOfBlock:startOfBlock+nI*nJ*nK] = np.float(iBlockP)
+
         gridspacing = x_blk[1,0,0, iBlockP] - x_blk[0,0,0, iBlockP]
 
         xmin = x_blk[0,0,0, iBlockP] - gridspacing/2.
@@ -71,7 +100,10 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
         ymax = y_blk[0   ,nJ-1,0   , iBlockP] + gridspacing/2.
         zmax = z_blk[0   ,0   ,nK-1, iBlockP] + gridspacing/2.
 
-        grid = np.mgrid[float(xmin):float(xmax+gridspacing):float(gridspacing), 
+        logger.debug("    (x, y, z) min = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmin, ymin, zmin))
+        logger.debug("    (x, y, z) max = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmax, ymax, zmax))
+
+        grid = np.mgrid[float(xmin):float(xmax+gridspacing):float(gridspacing),
                         float(ymin):float(ymax+gridspacing):float(gridspacing),
                         float(zmin):float(zmax+gridspacing):float(gridspacing) ]
         grid = np.array(grid.reshape((3,(nI+1)*(nJ+1)*(nK+1))).transpose(), order='C')
@@ -79,25 +111,35 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
         all_vertices[startOfBlock:startOfBlock+(nI+1)*(nJ+1)*(nK+1), :] = grid
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
 
-    #print(is_selected)
-    #print(np.all(is_selected))
-    #print(all_vertices)
-    #print(np.count_nonzero(np.isnan(all_vertices)))
 
-    unique_vertices, pointTo = np.unique(all_vertices,axis=0,return_inverse=True)
+    unique_vertices, pointTo = np.unique(all_vertices, axis=0, return_inverse=True)
     assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
 
     loc_in_block = np.arange((nI+1)*(nJ+1)*(nK+1)).reshape( ((nI+1),(nJ+1),(nK+1)) )
 
     cells = []
     startOfBlock = 0
+
+    celltype = 'VOXEL' # or HEXAHEDRON
+    logger.info(f'Creating {celltype}s.')
     for iBlockP in range(nBlock):
-        if not is_selected[iBlockP]: continue
+
+        logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
+
+        if blocks is not None and iBlockP > blocks[-1]:
+            logger.debug("  iBlockP > blocks[-1]. Done.")
+            break
+
+        if not is_selected[iBlockP]:
+            logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
+            continue
+
+        # TODO: These loops can be vectorized.
         for i in range(nI):
             for j in range(nJ):
                 for k in range(nK):
-                    if True: # use vtk voxel for cells
-                        celltype = 'VOXEL'
+
+                    if celltype == 'VOXEL':
                         cells.append(
                              (pointTo[startOfBlock+loc_in_block[i  ,j  ,k  ]] ,
                               pointTo[startOfBlock+loc_in_block[i+1,j  ,k  ]] ,
@@ -108,8 +150,7 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
                               pointTo[startOfBlock+loc_in_block[i  ,j+1,k+1]] ,
                               pointTo[startOfBlock+loc_in_block[i+1,j+1,k+1]] )
                             )
-                    else: # use vtk hexahedron for cells
-                        celltype = 'HEXAHEDRON'
+                    if celltype == 'HEXAHEDRON':
                         cells.append(
                              (pointTo[startOfBlock+loc_in_block[i  ,j  ,k  ]] ,
                               pointTo[startOfBlock+loc_in_block[i+1,j  ,k  ]] ,
@@ -125,8 +166,14 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
 
     cells = np.array(cells, dtype=int)
 
-    if debug:
-        print("Created VTK data structure")
+    logger.info("Created VTK data structure.")
+
+    cell_data.append(
+        {
+            "name" : "block_id",
+            "texture" : "SCALARS",
+            "array" : block_id
+        })
 
     if use_ascii:
         ftype='ASCII'
@@ -138,6 +185,11 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
     else:
         outname = f'{outname}.vtk'
 
+
+    debug = False
+    if logger.getEffectiveLevel() > 20:
+        debug = True
+
     vtk_export(outname, unique_vertices,
                     dataset='UNSTRUCTURED_GRID',
                     connectivity={'CELLS': {celltype: cells} },
@@ -145,6 +197,3 @@ def write(filetag, debug=False, epsilon=None, use_ascii=False):
                     ftype=ftype,
                     debug=debug)
 
-
-if __name__ == '__main__':
-    write('/tmp/3d__var_2_e20190902-041000-000', epsilon=None)

@@ -1,8 +1,15 @@
 import numpy as np
-import re
 from numba import types
 from numba.typed import Dict
-from swmf_file_reader.util import grep_dash_o
+from swmfio.util import grep_dash_o
+
+def read_rim(file):
+
+    if file.endswith('cdf'):
+        return read_iono_cdf(file)
+    else:
+        return read_iono_tec(file)
+
 
 # tested only for DIPTSUR2
 def read_iono_tec(filename):
@@ -29,7 +36,8 @@ def read_iono_tec(filename):
     # note, the header has 27 quantities, but last 5 of them have extra white space and are not 
     # picked up by the above grep
     # for even i, the lines will end up to be of size 5 and all zero, so we dont care about them.
-    # The first 22 variable names (which are the ones matched by the regex) are then assumed to be the 22 data point on the lines for odd i.
+    # The first 22 variable names (which are the ones matched by the regex) are then assumed to 
+    # be the 22 data point on the lines for odd i.
 
     # note in the SWMF source code, it would appear  Phi <==> Psi  , they are two different names for same thing...
     # likely done at some point to avoid confusion with PHI (the electric potential)
@@ -58,8 +66,9 @@ def read_iono_tec(filename):
     assert(south.shape == (16471, 22))
     assert(north.shape == (16471, 22))
 
-    # note in the SWMF source code, it would appear  Phi <==> Psi  , they are two different names for same thing...
-    # likely done at some point to avoid confusion with PHI (the electric potential)
+    # note in the SWMF source code, it would appear  Phi <==> Psi, they are
+    # two different names for same thing ... likely done at some point to avoid
+    # confusion with PHI (the electric potential)
     if True:
         psiN = north[:,4]
         thetaN = north[:,3]

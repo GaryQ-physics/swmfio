@@ -1,11 +1,11 @@
 import numpy as np
-from swmf_file_reader.swmf_constants import Used_,Unused_,Status_,Level_,Parent_,Child0_,Child1_,Coord1_,CoordLast_
-from swmf_file_reader.read_batsrus import read_tree, read_data
-from swmf_file_reader.util import unravel_index
-
 from numba import njit, types
 from numba.typed import Dict
 from numba.experimental import jitclass
+
+from swmfio.constants import Used_,Unused_,Status_,Level_,Parent_,Child1_,Coord1_,CoordLast_
+from swmfio.read_batsrus import read_tree, read_data
+from swmfio.util import unravel_index
 
 # npts -> nCell
 # block_parent_id   -> node_parent_id   
@@ -208,7 +208,7 @@ class BatsrusClass:
         # together, i0 and i1 form the upper and lower bounds for a linear interpolation in x
         # likewise for j0,j1,y  and k0,k1,z
 
-        #TODO implement better interpolation at ends of block.
+        # TODO: implement better interpolation at ends of block.
         # This method effectively makes it nearest neighbor at the ends
         if i0 == -1:
             i0 = 0
@@ -234,8 +234,9 @@ class BatsrusClass:
         else:
             k1 = k0 + 1
 
-        # all together i0,i1,j0,ect... form a cube of side length "gridpacing" to do trililear interpolation within
-        # define xd as the distance along x of point within that cube, in units of "gridspacing"
+        # all together i0,i1,j0, etc... form a cube of side length "gridpacing"
+        # To do trilinear interpolation within, define xd as the distanc
+        # along x of point within that cube, in units of "gridspacing"
         xd = (point[0] - DA[_x, i0, 0 , 0 , iBlockP])/gridspacingX
         yd = (point[1] - DA[_y, 0 , j0, 0 , iBlockP])/gridspacingY
         zd = (point[2] - DA[_z, 0 , 0 , k0, iBlockP])/gridspacingZ
@@ -271,7 +272,7 @@ class BatsrusClass:
         nVar, nI, nJ, nK, nBlock = DA.shape
 
         i,j,k,iBlockP = unravel_index(indx, (nI,nJ,nK,nBlock), order='F')
-        assert(indx == i + nI*j + nI*nJ*k + nI*nJ*nK*iBlockP)#!!!
+        assert(indx == i + nI*j + nI*nJ*k + nI*nJ*nK*iBlockP) 
 
         partials = np.empty(3, dtype=np.float32)
 
@@ -336,15 +337,16 @@ def get_class_from_native(filetag):
     for ivar,var in enumerate(variables):
         varidx[var] = np.int32(ivar)
 
-    ## in what follows:
-    #  the P in iNodeP and iBlockP stands for python like indexing (as oposed to fortran)
-    #  
-    #  iNodeP indexes all nodes of the tree, from 0 to nNode-1,
-    #  and thus the "iNode" to be used in the other functions is simply iNodeP+1, or P2F(iNodeP)
+    # In what follows, the P in iNodeP and iBlockP stands for Python-like
+    # indexing (as opposed to Fortran)
+    #
+    # iNodeP indexes all nodes of the tree, from 0 to nNode-1,
+    # and thus the "iNode" to be used in the other functions is simply iNodeP+1, or P2F(iNodeP)
     # 
-    #  iBlockP indexes all the blocks used, from 0 to nBlock-1.
-    #  There is one for each node with a status of used. 
-    #  Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
+    # iBlockP indexes all the blocks used, from 0 to nBlock-1. There is one for
+    # each node with a status of used. 
+    #
+    # Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
 
     # initialize arrays to -1 (invalid index), will be computed in __init__
     block2node = -np.ones((nBlock,), dtype=np.int32)

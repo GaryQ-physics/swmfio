@@ -1,8 +1,15 @@
-from collections import namedtuple
 import numpy as np
 import scipy.io as sio
-from numba import types
-from numba.typed import Dict
+
+def read_batsrus(file):
+
+    if file.endswith('cdf'):
+        from swmfio.batsrus_class import get_class_from_cdf
+        return get_class_from_cdf(file)
+    else:
+        from swmfio.batsrus_class import get_class_from_native
+        return get_class_from_native(file)
+
 
 def read_tree(filetag):
     # first read info file
@@ -86,6 +93,3 @@ def read_data(filetag):
     assert(expectedheader == header.strip())
     return data_arr, variables
 
-
-if __name__ == '__main__':
-    read_cdf_file('/home/gary/Documents/code_repos/magnetosphere/data/SWPC_SWMF_052811_2/GM_CDF/3d__var_1_t00001001_n0002710.out.cdf')

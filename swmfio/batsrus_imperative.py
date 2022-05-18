@@ -3,9 +3,9 @@
 
 from collections import namedtuple
 import numpy as np
-from swmf_file_reader.swmf_constants import Used_,Status_,Level_,Child1_,Coord1_,CoordLast_,ROOTNODE_
-from swmf_file_reader.read_batsrus import read_tree_file, read_out_file
-from swmf_file_reader import util
+from swmfio.constants import Used_,Status_,Level_,Child1_,Coord1_,CoordLast_,ROOTNODE_
+from swmfio.read_batsrus import read_tree_file, read_out_file
+from swmfio import util
 
 try:
     from numba import njit, types

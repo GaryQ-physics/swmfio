@@ -5,9 +5,9 @@ from urllib.request import urlretrieve
 from timeit import default_timer as timer
 from datetime import timedelta
 
-import swmf_file_reader as swmf
+import swmfio as swmfio
 
-urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
+urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
 tmpdir = '/tmp/'
 filename = '3d__var_2_e20190902-041000-000.out.cdf'
 
@@ -18,7 +18,7 @@ if not exists(tmpdir + filename):
     urlretrieve(urlbase + filename, tmpdir + filename)
 
 start = timer()
-batsclass = swmf.read_batsrus(tmpdir + filename)
+batsclass = swmfio.read_batsrus(tmpdir + filename)
 end = timer()
 print("Read time: {}".format(timedelta(seconds=end-start)))
 

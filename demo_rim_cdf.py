@@ -1,8 +1,8 @@
-import swmf_file_reader as swmf
+import swmfio as swmfio
 from os.path import exists
 from urllib.request import urlretrieve
 
-urlbase = 'http://mag.gmu.edu/git-data/swmf_file_reader/demodata/'
+urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
 tmpdir = '/tmp/'
 filename = 'SWPC_SWMF_052811_2.swmf.it061214_071000_000.cdf'
 
@@ -12,7 +12,7 @@ if not exists(tmpdir + filename):
     print(tmpdir + filename)
     urlretrieve(urlbase + filename, tmpdir + filename)
 
-data_arr, varidx, units = swmf.read_rim(tmpdir + filename)
+data_arr, varidx, units = swmfio.read_rim(tmpdir + filename)
 
 print(varidx)
 # {X: 0, Y: 1, Z: 2, 
