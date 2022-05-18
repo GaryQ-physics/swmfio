@@ -1,6 +1,20 @@
+`swmfio` -- I/O related to SWMF simulation data
+
+<!--- TOC --->
+
+ [1 Overview](#1-overview)<br/>
+ [2 Install](#2-install)<br/>
+&nbsp;&nbsp;&nbsp; [2.1 User](#21-user)<br/>
+&nbsp;&nbsp;&nbsp; [2.2 Developer](#22-developer)<br/>
+ [3 Examples](#3-examples)<br/>
+ [4 Motivation](#4-motivation)<br/>
+ [5 Acknowledgments](#5-acknowledgments)<br/>
+ [6 Notes](#6-notes)<br/>
+
+<!--- /TOC --->
 ![ParaView](doc/paraview.png)
 
-# Overview
+# 1 Overview
 
 `swmfio` reads magnetosphere and ionosphere data files from an [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) run.
 For the (BATSRUS) magnetosphere module, it reads `.out`, `.tree`, and `.info` files.
@@ -26,17 +40,17 @@ This code is used in [https://github.com/GaryQ-physics/magnetopost](https://gith
 
 This code was developed with the help of the code of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) and the [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) Fortran code.
 
-# Install
+# 2 Install
 
 Requires Python 3.
 
-## User
+## 2.1 User
 
 ```
 pip install 'git+https://github.com/GaryQ-physics/swmf_file_reader.git' --upgrade
 ```
 
-## Developer
+## 2.2 Developer
 
 ```
 git clone https://github.com/GaryQ-physics/swmf_file_reader.git
@@ -44,7 +58,7 @@ cd swmf_file_reader
 pip install --editable .
 ```
 
-# Examples
+# 3 Examples
 
 * BATSRUS `.out`: [demo_batsrus_native.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_native.py)
 * BATSRUS `.cdf`: [demo_batsrus_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_cdf.py)
@@ -59,19 +73,19 @@ pip install --editable .
 * BATSRUS to VTK file: [demo_vtk.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_vtk.py); The image at the start of this README was created using ParaView with the [output file from the execution of this demo](http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000.vtk).
 
 
-# Motivation
+# 4 Motivation
 
 This code was developed in support of the paper [Blake et al., 2021, Recreating the Horizontal Magnetic Field at Colaba During the Carrington Event With Geospace Simulations](https://doi.org/10.1029/2020SW002585).
 
 Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) very slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate them on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally, [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
 
-# Acknowledgments
+# 5 Acknowledgments
 
 This work was in part supported by NASA Grant 80NSSC20K0589 "Physics-based modeling of the magnetosphere-ionosphere system under Carrington-scale solar driving: response modes, missing physics and uncertainty estimates", PI: Antti Pulkkinen and the subaward "Ground Magnetic Field Perturbations under Extreme Space Weather Conditions", PI: R.S. Weigel.
 
 Hongyang Zhou, the developer of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl).
 
-# Notes
+# 6 Notes
 
 BATSRUS output consists of files: `3d_*.out`, `3d_*.tree`, `3d_*.info`. From the SWMF documentation,
 
