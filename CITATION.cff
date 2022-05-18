@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Gary 
+    given-names: Quaresima
+    orcid: https://orcid.org/0000-0002-5743-3777
+  - family-names: Robert S.
+    given-names: Weigel
+    orcid: https://orcid.org/0000-0002-9521-5228
+title: "swmfio"
+version: v0.9.0
+doi: 
+date-released: 2022-05-18
