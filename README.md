@@ -20,13 +20,13 @@
 For the (BATSRUS) magnetosphere module, it reads `.out`, `.tree`, and `.info` files.
 For the (RIM) ionosphere module, it reads `.tec` files (for RIM `.idl` files, use [SpacePy](https://spacepy.github.io/autosummary/spacepy.pybats.rim.html)). Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) much slower.
 
-`swmfio`  also reads CCMC `.cdf` files, which contains most of the information contained in the native BATSRUS magnetosphere files.
+`swmfio`  also reads CCMC `.cdf` files, which contain most of the information contained in the native BATSRUS magnetosphere files.
 
 For BATSRUS files, `swmfio` returns a [Numba](https://numba.pydata.org/) class, with the simulation data in arrays as class attributes and interpolation and differentiation as class methods.
 
 For RIM files, returns a tuple `(data_arr, varidx, units)`, where `data_arr` is a NumPy array with the data, `varidx` is a Numba typed dictionary which maps variable name strings to their corresponding index in `data_arr`, and `units` is a dictionary of units.
 
-`swmfio` also provides a function to output the magnetosphere (BATSRUS) data on a native grid to a VTK file, as either an unstructured voxel or hexahedra grid.
+`swmfio` also provides a function to output the magnetosphere (BATSRUS) data on a native grid to a VTK file as either an unstructured voxel or hexahedra grid.
 
 This package has similar functionality to the Julia package [`Batsrus.jl`](https://github.com/henry2004y/Batsrus.jl)
 with the exception that in `swmfio`
