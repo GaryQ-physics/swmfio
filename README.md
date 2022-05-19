@@ -18,16 +18,16 @@
 # 1 Overview
 
 `swmfio` reads magnetosphere and ionosphere data files from an [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) run.
-For the (BATSRUS) magnetosphere module, it reads `.out`, `.tree`, and `.info` files.
-For the (RIM) ionosphere module, it reads `.tec` files (for RIM `.idl` files, use [SpacePy](https://spacepy.github.io/autosummary/spacepy.pybats.rim.html)). Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) much slower.
+* For the BATSRUS magnetosphere module, it reads native `.out`, `.tree`, and `.info` files or CCMC `.cdf` files containing the same information. (Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (that was needed for field line tracing) much slower.)
 
-`swmfio`  also reads CCMC `.cdf` files, which contain most of the information contained in the native BATSRUS magnetosphere files.
+
+* For the RIM ionosphere module, it reads `.tec` files or CCMC `.cdf` files containing the same information (for RIM `.idl` files, use [SpacePy](https://spacepy.github.io/autosummary/spacepy.pybats.rim.html)). 
 
 For BATSRUS files, `swmfio` returns a [Numba](https://numba.pydata.org/) class, with the simulation data in arrays as class attributes and interpolation and differentiation as class methods.
 
-For RIM files, returns a tuple `(data_arr, varidx, units)`, where `data_arr` is a NumPy array with the data, `varidx` is a Numba typed dictionary which maps variable name strings to their corresponding index in `data_arr`, and `units` is a dictionary of units.
+For RIM files, `swmfio` returns a tuple `(data, varidx, units)`, where `data` is an NumPy `ndarray` with the data, `varidx` is a dictionary that maps variable name strings to their corresponding index in `data`, and `units`.
 
-`swmfio` also provides a function to output the magnetosphere (BATSRUS) data on a native grid to a VTK file as either an unstructured voxel or hexahedra grid.
+`swmfio` also provides a function to output the magnetosphere (BATSRUS) data on a native grid to a [VTK](https://vtk.org/) file as either an unstructured voxel or hexahedra grid.
 
 This package has similar functionality to the Julia package [`Batsrus.jl`](https://github.com/henry2004y/Batsrus.jl)
 with the exception that in `swmfio`
@@ -38,8 +38,6 @@ with the exception that in `swmfio`
 For example data files, see [http://mag.gmu.edu/git-data/swmfio/](http://mag.gmu.edu/git-data/swmfio/).
 
 This code is used in [https://github.com/GaryQ-physics/magnetopost](https://github.com/GaryQ-physics/magnetopost) to post-process magnetosphere simulation data.
-
-This code was developed with the help of the code of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) and the [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) Fortran code.
 
 # 2 Install
 
@@ -78,13 +76,13 @@ pip install --editable .
 
 This code was developed in support of the paper [Blake et al., 2021, Recreating the Horizontal Magnetic Field at Colaba During the Carrington Event With Geospace Simulations](https://doi.org/10.1029/2020SW002585).
 
-Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) very slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate them on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally, [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
+Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate them on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally, [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
 
 # 5 Acknowledgments
 
 This work was in part supported by NASA Grant 80NSSC20K0589 "Physics-based modeling of the magnetosphere-ionosphere system under Carrington-scale solar driving: response modes, missing physics and uncertainty estimates", PI: Antti Pulkkinen and the subaward "Ground Magnetic Field Perturbations under Extreme Space Weather Conditions", PI: R.S. Weigel.
 
-Hongyang Zhou, the developer of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl).
+This code was developed with the help of Hongyang Zhou, the developer of [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl); Dan Welling; and the [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) source code.
 
 # 6 Notes
 

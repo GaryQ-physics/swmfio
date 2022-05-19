@@ -12,7 +12,7 @@ if not exists(tmpdir + filename):
     print(tmpdir + filename)
     urlretrieve(urlbase + filename, tmpdir + filename)
 
-data_arr, varidx, units = swmfio.read_rim(tmpdir + filename)
+data, varidx, units = swmfio.read_rim(tmpdir + filename)
 
 print(varidx)
 # {X: 0, Y: 1, Z: 2, 
@@ -27,5 +27,5 @@ print(varidx)
 print(varidx['SigmaP']) # Pedersen conductance
 print(varidx['SigmaH']) # Hall conductance
 
-print(data_arr[varidx['Theta'],:]) # colatitudes
-print(data_arr[varidx['Psi'],:])   # longitudes
+print(data[varidx['Theta'],:]) # colatitudes
+print(data[varidx['Psi'],:])   # longitudes
