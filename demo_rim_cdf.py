@@ -14,18 +14,40 @@ if not exists(tmpdir + filename):
 
 data, varidx, units = swmfio.read_rim(tmpdir + filename)
 
-print(varidx)
-# {X: 0, Y: 1, Z: 2, 
-#  Theta: 3, Psi: 4, SigmaH: 5, SigmaP: 6, 
-#  E-Flux: 7, Ave-E: 8, JR: 9, PHI: 10,
-#  Ex: 11, Ey: 12, Ez: 13,
-#  Jx: 14, Jy: 15, Jz: 16,
-#  Ux: 17, Uy: 18, Uz: 19,
-#  JouleHeat: 20, IonNumFlux: 21,
-#  measure: 22}
+import pprint; pp = pprint.PrettyPrinter(indent=4)
+pp.pprint(dict(varidx))
+"""
+{   'Ave-E': 6,
+    'E-Flux': 5,
+    'Ex': 9,
+    'Ey': 10,
+    'Ez': 11,
+    'IonNumFlux': 19,
+    'JR': 7,
+    'JouleHeat': 18,
+    'Jx': 12,
+    'Jy': 13,
+    'Jz': 14,
+    'PHI': 8,
+    'Psi': 20,
+    'SigmaH': 3,
+    'SigmaP': 4,
+    'Theta': 21,
+    'Ux': 15,
+    'Uy': 16,
+    'Uz': 17,
+    'X': 0,
+    'Y': 1,
+    'Z': 2,
+    'measure': 22}
+"""
 
 print(varidx['SigmaP']) # Pedersen conductance
+# 4
 print(varidx['SigmaH']) # Hall conductance
+# 3
 
 print(data[varidx['Theta'],:]) # colatitudes
+#[  0. 180. 179. ...   3.   2.   1.]
 print(data[varidx['Psi'],:])   # longitudes
+#[  0.   0.   0. ... 358. 358. 358.]
