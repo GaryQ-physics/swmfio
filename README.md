@@ -12,6 +12,7 @@
  [6 Notes](#6-notes)<br/>
 
 <!--- /TOC --->
+
 ![ParaView](doc/paraview.png)
 
 # 1 Overview
@@ -47,30 +48,30 @@ Requires Python 3.
 ## 2.1 User
 
 ```
-pip install 'git+https://github.com/GaryQ-physics/swmf_file_reader.git' --upgrade
+pip install 'git+https://github.com/GaryQ-physics/swmfio.git' --upgrade
 ```
 
 ## 2.2 Developer
 
 ```
-git clone https://github.com/GaryQ-physics/swmf_file_reader.git
-cd swmf_file_reader
+git clone https://github.com/GaryQ-physics/swmfio.git
+cd swmfio
 pip install --editable .
 ```
 
 # 3 Examples
 
-* BATSRUS `.out`: [demo_batsrus_native.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_native.py)
-* BATSRUS `.cdf`: [demo_batsrus_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_cdf.py)
+* BATSRUS `.out`: [demo_batsrus_native.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_native.py)
+* BATSRUS `.cdf`: [demo_batsrus_cdf.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_cdf.py)
 
 
-* RIM `.tec`: [demo_rim_tec.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_rim_tec.py) 
-* RIM `.cdf`: [demo_rim_cdf.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_rim_cdf.py)
+* RIM `.tec`: [demo_rim_tec.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_rim_tec.py) 
+* RIM `.cdf`: [demo_rim_cdf.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_rim_cdf.py)
 
     For RIM `.idl` files, use [SpacePy](https://spacepy.github.io/autosummary/spacepy.pybats.rim.html).
 
 
-* BATSRUS to VTK file: [demo_vtk.py](https://github.com/GaryQ-physics/swmf_file_reader/blob/main/demo_vtk.py); The image at the start of this README was created using ParaView with the [output file from the execution of this demo](http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000.vtk).
+* BATSRUS to VTK file: [demo_vtk.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_vtk.py); The image at the start of this README was created using ParaView with the [output file from the execution of this demo](http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000.vtk).
 
 
 # 4 Motivation
