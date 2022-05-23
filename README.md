@@ -1,5 +1,7 @@
 `swmfio` -- I/O related to SWMF simulation data
 
+[![DOI](https://zenodo.org/badge/353944170.svg)](https://zenodo.org/badge/latestdoi/353944170)
+
 <!--- TOC --->
 
  [1 Overview](#1-overview)<br/>
