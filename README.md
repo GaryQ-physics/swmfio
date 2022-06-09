@@ -61,8 +61,8 @@ pip install --editable .
 
 # 3 Examples
 
-* BATSRUS `.out`: [demo_batsrus_native.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_native.py)
-* BATSRUS `.cdf`: [demo_batsrus_cdf.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_cdf.py)
+* BATSRUS `.out`: [demo_batsrus_native.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_batsrus_native.py)
+* BATSRUS `.cdf`: [demo_batsrus_cdf.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_batsrus_cdf.py)
 
 
 * RIM `.tec`: [demo_rim_tec.py](https://github.com/GaryQ-physics/swmfio/blob/main/demo_rim_tec.py) 
