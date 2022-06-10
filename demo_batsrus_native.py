@@ -37,11 +37,33 @@ print(x, y, z, rho)
 # -71.25 -15.75 -7.75 4.22874
 
 start = timer()
+print("Interpolating using batsclass")
 rhoi = batsclass.interpolate(np.array([x, y, z]), 'rho')
 assert rho == rhoi
 end = timer()
 print("Interpolation time: {}".format(timedelta(seconds=end-start)))
 assert rho == rhoi
+
+if False:
+    from scipy.interpolate import LinearNDInterpolator
+    start = timer()
+    xg = batsclass.data_arr[:,var_dict['x']]
+    yg = batsclass.data_arr[:,var_dict['y']]
+    zg = batsclass.data_arr[:,var_dict['z']]
+    rhog = batsclass.data_arr[:, var_dict['rho']]
+
+    print("Creating LinearNDInterpolator for rho")
+    start = timer()
+    rho_interpolator = LinearNDInterpolator(list(zip(xg, yg, zg)), rhog)
+    end = timer()
+    print("Creation time: {}".format(timedelta(seconds=end-start)))
+
+    start = timer()
+    print("Interpolating using LinearNDInterpolator")
+    rhoi = rho_interpolator(np.array([x, y, z]))
+    end = timer()
+    print("Interpolation time: {}".format(timedelta(seconds=end-start)))
+    assert rho == rhoi
 
 # Compute a derived quantity
 print( batsclass.get_native_partial_derivatives(123456, 'rho') )
