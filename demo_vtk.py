@@ -1,7 +1,7 @@
 from os.path import exists
 from urllib.request import urlretrieve
 
-import swmfio as swmf
+import swmfio as swmfio
 
 urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
 tmpdir = '/tmp/'
@@ -17,13 +17,13 @@ for ext in ['.tree', '.info', '.out']:
 
 # Optional
 import logging
-swmf.logger.setLevel(logging.INFO)
+swmfio.logger.setLevel(logging.INFO)
 
-swmf.write_vtk(tmpdir + filebase, logger=swmf.logger)
+swmfio.write_vtk(tmpdir + filebase, logger=swmfio.logger)
 
 if False:
     # For debugging, can output data for selected blocks and output ASCII file.
     import logging
-    swmf.logger.setLevel(logging.DEBUG)
-    swmf.write_vtk(tmpdir + filebase, logger=swmf.logger, use_ascii=True, blocks=[0, 1])
+    swmfio.logger.setLevel(logging.DEBUG)
+    swmfio.write_vtk(tmpdir + filebase, use_ascii=True, blocks=[0, 1])
 
