@@ -3,16 +3,14 @@
 [![DOI](https://zenodo.org/badge/353944170.svg)](https://zenodo.org/badge/latestdoi/353944170)
 
 <!--- TOC --->
-
- [1 Overview](#1-overview)<br/>
- [2 Install](#2-install)<br/>
-&nbsp;&nbsp;&nbsp; [2.1 User](#21-user)<br/>
-&nbsp;&nbsp;&nbsp; [2.2 Developer](#22-developer)<br/>
- [3 Examples](#3-examples)<br/>
- [4 Motivation](#4-motivation)<br/>
- [5 Acknowledgments](#5-acknowledgments)<br/>
- [6 Notes](#6-notes)<br/>
-
+[1 Overview](#1-overview)<br/>
+[2 Install](#2-install)<br/>
+&nbsp;&nbsp;&nbsp;[2.1 User](#21-user)<br/>
+&nbsp;&nbsp;&nbsp;[2.2 Developer](#22-developer)<br/>
+[3 Examples](#3-examples)<br/>
+[4 Motivation](#4-motivation)<br/>
+[5 Acknowledgments](#5-acknowledgments)<br/>
+[6 Notes](#6-notes)
 <!--- /TOC --->
 
 ![ParaView](doc/paraview.png)
@@ -40,6 +38,8 @@ with the exception that in `swmfio`
 For example data files, see [http://mag.gmu.edu/git-data/swmfio/](http://mag.gmu.edu/git-data/swmfio/).
 
 This code is used in [https://github.com/GaryQ-physics/magnetopost](https://github.com/GaryQ-physics/magnetopost) to post-process magnetosphere simulation data.
+
+Note that the project [SWMFPy](https://gitlab.umich.edu/swmf_software/swmfpy) has functions for working with SWMF--related data files, but there does not appear to be a significant overlap in functionality with with `swmfio` or the SWMF functions in SpacePy.
 
 # 2 Install
 
@@ -78,7 +78,7 @@ pip install --editable .
 
 This code was developed in support of the paper [Blake et al., 2021, Recreating the Horizontal Magnetic Field at Colaba During the Carrington Event With Geospace Simulations](https://doi.org/10.1029/2020SW002585).
 
-Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate them on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally, [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
+Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (needed for field line tracing) prohibitively slow. [Batsrus.jl](https://github.com/henry2004y/Batsrus.jl) can read native BATSRUS files and generate VTK files, but the mapping to the [native grid was not quite correct](https://github.com/henry2004y/Batsrus.jl/issues/3). [Kameleon](https://ccmc.gsfc.nasa.gov/Kameleon/) can read native BATSRUS files and interpolate them on the native grid. However, this software is no longer being developed and is not easy to compile; in addition, [extra C wrappers can compilation are needed](https://github.com/rweigel/kameleon) to interface with Python. Finally, [Kamoto](https://github.com/nasa/Kamodo) can read BATSRUS files, but file reading and interpolation was [too slow for our application](https://github.com/nasa/Kamodo/issues/21).
 
 # 5 Acknowledgments
 
