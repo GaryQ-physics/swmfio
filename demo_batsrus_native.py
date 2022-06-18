@@ -20,10 +20,11 @@ for ext in ['.tree', '.info', '.out']:
         urlretrieve(urlbase + filename, tmpdir + filename)
 
 start = timer()
-print("Reading " + tmpdir + filebase + ".{tree, info, out}")
+print("Reading and creating native grid interpolator" + tmpdir + filebase + ".{tree, info, out}")
 batsclass = swmfio.read_batsrus(tmpdir + filebase)
 end = timer()
-print("Read time: {}".format(timedelta(seconds=end-start)))
+print("Time: {}".format(timedelta(seconds=end-start)))
+# Time: 0:00:01.856912
 
 assert batsclass.data_arr.shape == (5896192, 19)
 
@@ -42,9 +43,10 @@ rhoi = batsclass.interpolate(np.array([x, y, z]), 'rho')
 assert rho == rhoi
 end = timer()
 print("Interpolation time: {}".format(timedelta(seconds=end-start)))
+# Interpolation time: 0:00:00.004919
 assert rho == rhoi
 
-if False:
+if True:
     from scipy.interpolate import LinearNDInterpolator
     start = timer()
     xg = batsclass.data_arr[:,var_dict['x']]
