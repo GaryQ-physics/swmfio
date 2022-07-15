@@ -15,11 +15,10 @@ for ext in ['.tree', '.info', '.out']:
         print(tmpdir + filename)
         urlretrieve(urlbase + filename, tmpdir + filename)
 
-# Optional
-import logging
-swmfio.logger.setLevel(logging.INFO)
-
-swmfio.write_vtk(tmpdir + filebase, logger=swmfio.logger)
+#import logging
+#swmfio.logger.setLevel(logging.INFO)
+#swmfio.write_vtk(tmpdir + filebase, logger=swmfio.logger)
+swmfio.write_vtk(tmpdir + filebase)
 
 if False:
     # For debugging, can output data for selected blocks and output ASCII file.
