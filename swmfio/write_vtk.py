@@ -6,7 +6,8 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
     if logger is None:
         import logging
-        logger = logging.logging()
+        from swmfio import logger
+        logger.setLevel(logging.INFO)
 
     if isinstance(filetag, str): # TODO: Check extension?
         logger.info("Reading {}.*".format(filetag))
@@ -71,7 +72,7 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
     logger.debug("nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
 
-    block_id = np.full(nSelected*(nI)*(nJ)*(nK), -1, dtype=np.float32)
+    block_id = np.full(nSelected*(nI)*(nJ)*(nK), -1, dtype=np.int32)
 
     all_vertices = np.full((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), np.nan, dtype=np.float32)
     startOfBlock = 0
@@ -88,7 +89,7 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
             logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
             continue
 
-        block_id[startOfBlock:startOfBlock+nI*nJ*nK] = np.float(iBlockP)
+        block_id[startOfBlock:startOfBlock+nI*nJ*nK] = iBlockP
 
         gridspacing = x_blk[1,0,0, iBlockP] - x_blk[0,0,0, iBlockP]
 
@@ -196,4 +197,3 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
                     cell_data=cell_data,
                     ftype=ftype,
                     debug=debug)
-

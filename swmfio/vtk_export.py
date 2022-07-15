@@ -163,9 +163,12 @@ def vtk_export(out_filename, points,
             elif ftype=='ASCII':
                 np.savetxt(f, lines, fmt='%d')
 
-    def writedata(name, array, texture): #todo integer values??
+    def writedata(name, array, texture):
         if ' ' in name:
             raise ValueError ('names of point and cell data cannot contain spaces')
+
+        # TODO: This always outputs floats. It should
+        # use the type of the points.
 
         if texture == 'SCALARS':
             f.write(b'SCALARS %s float 1\n'%(bytearray(name, 'utf-8'))) # number with float???
