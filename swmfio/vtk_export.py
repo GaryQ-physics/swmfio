@@ -169,6 +169,8 @@ def vtk_export(out_filename, points,
 
         # TODO: This always outputs floats. It should
         # use the type of the points.
+        # For integers, this could be a problem. See pg 3 of
+        # https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf
 
         if texture == 'SCALARS':
             f.write(b'SCALARS %s float 1\n'%(bytearray(name, 'utf-8'))) # number with float???

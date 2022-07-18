@@ -1,17 +1,25 @@
 import numpy as np
-import swmfio.batsrus_class as batscls
+import swmfio
 from swmfio.vtk_export import vtk_export
 
-def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
+def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=False):
 
-    if logger is None:
-        import logging
-        from swmfio import logger
-        logger.setLevel(logging.INFO)
+    variables_all = ['b','j','u','b1', 'rho','p', 'measure', 'block_id']
+    if isinstance(variables, str):
+        if str == "all":
+            variables = variables_all
+            save_all = True
+        else:
+            variables = [variables]
 
-    if isinstance(filetag, str): # TODO: Check extension?
+    from swmfio import logger
+
+    if isinstance(filetag, str):
+        if filetag.startswith("http"):
+            logger.info("Remote file.")
+            filetag = swmfio.dlfile(filetag)
         logger.info("Reading {}.*".format(filetag))
-        bats_slice = batscls.get_class_from_native(filetag)
+        bats_slice = swmfio.read_batsrus(filetag)
         logger.info("Read {}.*".format(filetag))
         outname = filetag
     else:
@@ -27,9 +35,11 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
     nJ = bats_slice.nJ
     nK = bats_slice.nK
     nBlock = bats_slice.block2node.size
+    nNode = bats_slice.node2block.size
 
-    logger.debug("(nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
-    logger.debug("nBlock = {0:d}".format(nBlock))
+    logger.debug(" (nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
+    logger.debug(" nBlock = {0:d}".format(nBlock))
+    logger.debug(" nNode  = {0:d}".format(nNode))
 
     nVar = len(bats_slice.varidx)
 
@@ -52,6 +62,7 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
     cell_data = []
     for vv in ['b','j','u','b1']:
+        if not vv in variables: continue
         cell_data.append(
             {
                 "name" : vv,
@@ -61,6 +72,7 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
                                            DA[vidx[vv+'z'],:,:,:,is_selected].ravel()])
             })
     for sv in ['rho','p', 'measure']:
+        if not sv in variables: continue
         cell_data.append(
             {
                 "name" : sv,
@@ -70,13 +82,13 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
     nSelected = np.count_nonzero(is_selected)
 
-    logger.debug("nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
+    logger.debug(" nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
 
     block_id = np.full(nSelected*(nI)*(nJ)*(nK), -1, dtype=np.int32)
-
     all_vertices = np.full((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), np.nan, dtype=np.float32)
-    startOfBlock = 0
-    logger.info("Creating block grids and start indices.")
+    startOfBlock = 0    # Counter of points in block
+    cellIndexStart = 0  # Counter of cells in block
+    logger.info(" Creating block grids.")
     for iBlockP in range(nBlock):
 
         logger.debug(f"  Creating grid for block #{iBlockP+1}/{nBlock+1}")
@@ -89,7 +101,8 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
             logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
             continue
 
-        block_id[startOfBlock:startOfBlock+nI*nJ*nK] = iBlockP
+        block_id[cellIndexStart:cellIndexStart+nI*nJ*nK] = iBlockP
+        cellIndexStart = cellIndexStart + nI*nJ*nK
 
         gridspacing = x_blk[1,0,0, iBlockP] - x_blk[0,0,0, iBlockP]
 
@@ -112,17 +125,19 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
         all_vertices[startOfBlock:startOfBlock+(nI+1)*(nJ+1)*(nK+1), :] = grid
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
 
+    logger.info(" Created block grids.")
+
+    logger.info(f' Creating {celltype}s.')
 
     unique_vertices, pointTo = np.unique(all_vertices, axis=0, return_inverse=True)
     assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
 
+    # Nodes of blocks
     loc_in_block = np.arange((nI+1)*(nJ+1)*(nK+1)).reshape( ((nI+1),(nJ+1),(nK+1)) )
-
     cells = []
     startOfBlock = 0
 
     celltype = 'VOXEL' # or HEXAHEDRON
-    logger.info(f'Creating {celltype}s.')
     for iBlockP in range(nBlock):
 
         logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
@@ -165,31 +180,46 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
 
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
 
+
     cells = np.array(cells, dtype=int)
+
+    logger.info(f' Created {celltype}s.')    
 
     logger.info("Created VTK data structure.")
 
-    cell_data.append(
-        {
-            "name" : "block_id",
-            "texture" : "SCALARS",
-            "array" : block_id
-        })
+    if 'block_id' in variables:
+        cell_data.append(
+            {
+                "name" : "block_id",
+                "texture" : "SCALARS",
+                "array" : block_id
+            })
 
     if use_ascii:
         ftype='ASCII'
     else:
         ftype='BINARY'
 
+    extra = ""
     if epsilon is not None:
-        outname = f'{outname}_epsilon={epsilon}.vtk'
-    else:
-        outname = f'{outname}.vtk'
-
+        extra = f"_epsilon={epsilon}"
+    if variables is not None:
+        extra = "_vars=" + ",".join(variables)
+    if blocks is not None:
+        if len(blocks) < 5:
+            blockstrs = []
+            for block in blocks:
+                blockstrs.append(str(block))
+            extra = "_blocks=" + ",".join(blockstrs)
+        else:
+            extra = f"_Nblocks={len(blocks)}"
+    outname = outname + extra + ".vtk"
 
     debug = False
     if logger.getEffectiveLevel() > 20:
         debug = True
+
+    logger.info("Writing " + outname)
 
     vtk_export(outname, unique_vertices,
                     dataset='UNSTRUCTURED_GRID',
@@ -197,3 +227,7 @@ def write_vtk(filetag, logger=None, epsilon=None, blocks=None, use_ascii=False):
                     cell_data=cell_data,
                     ftype=ftype,
                     debug=debug)
+
+    logger.info("Wrote " + outname)
+
+    return outname

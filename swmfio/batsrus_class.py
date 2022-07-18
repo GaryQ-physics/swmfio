@@ -139,7 +139,7 @@ class BatsrusClass:
             for k in range(nK):
                 for j in range(nJ):
                     for i in range(nI):
-                        self.DataArray[varidx['measure'], i,j,k,iBlockP] = epsilonX*epsilonY*epsilonZ
+                        self.DataArray[varidx['measure'], i, j, k, iBlockP] = epsilonX*epsilonY*epsilonZ
 
 
     def find_tree_node(self, point):

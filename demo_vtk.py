@@ -1,28 +1,33 @@
-from os.path import exists
-from urllib.request import urlretrieve
+import swmfio
 
-import swmfio as swmfio
-
-urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
-tmpdir = '/tmp/'
-filebase = '3d__var_2_e20190902-041000-000'
-
-for ext in ['.tree', '.info', '.out']:
-    filename = filebase + ext
-    if not exists(tmpdir + filename):
-        print("Downloading " + urlbase + filename)
-        print("to")
-        print(tmpdir + filename)
-        urlretrieve(urlbase + filename, tmpdir + filename)
-
-#import logging
-#swmfio.logger.setLevel(logging.INFO)
-#swmfio.write_vtk(tmpdir + filebase, logger=swmfio.logger)
-swmfio.write_vtk(tmpdir + filebase)
+import logging
+swmfio.logger.setLevel(logging.INFO)
 
 if False:
-    # For debugging, can output data for selected blocks and output ASCII file.
+    # If .out, .tree, and .info file are remote.
+    url = 'http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000'
+    # Downloads .out, .tree, and .info files if not found there already.
+    vtkfile = swmfio.write_vtk(url)
+    print(vtkfile) # /tmp/mag.gmu.edu/git-data/swmfio/d__var_2_e20190902-041000-000.vtk
+
+if False:
+    # If .out, .tree, and .info file are local
+    file = '/tmp/3d__var_2_e20190902-041000-000'
+    vtkfile = swmfio.write_vtk(file)
+    print(vtkfile) # /tmp/3d__var_2_e20190902-041000-000.vtk
+
+if False:
+    # If .out, .tree, and .info file are local
+    file = '/tmp/3d__var_2_e20190902-041000-000'
+    vtkfile = swmfio.write_vtk(file, variables=['b'])
+    print(vtkfile) # /tmp/3d__var_2_e20190902-041000-000_vars=b.vtk
+
+
+if False:
+    # For debugging, can output data for selected blocks
+    # and output ASCII file.
     import logging
     swmfio.logger.setLevel(logging.DEBUG)
-    swmfio.write_vtk(tmpdir + filebase, use_ascii=True, blocks=[0, 1])
-
+    file = '/tmp/3d__var_2_e20190902-041000-000'
+    vtkfile = swmfio.write_vtk(file, use_ascii=True, blocks=[0, 1])
+    print(vtkfile) # /tmp/3d__var_2_e20190902-041000-000_blocks=0,1.vtk

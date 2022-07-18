@@ -1,6 +1,8 @@
 from swmfio.read_rim import read_rim
 from swmfio.read_batsrus import read_batsrus
 from swmfio.write_vtk import write_vtk
+from swmfio.util import fileparts
+from swmfio.util import dlfile
 
 def xlogger():
     import sys
@@ -15,7 +17,7 @@ def xlogger():
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARN)
 
     return logger
 
