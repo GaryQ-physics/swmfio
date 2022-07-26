@@ -4,13 +4,13 @@ from swmfio.write_vtk import write_vtk
 from swmfio.util import fileparts
 from swmfio.util import dlfile
 
-def xlogger():
+def _logger():
     import sys
     import logging
 
     logger = logging.getLogger('swmfio')
     handler = logging.StreamHandler(stream=sys.stdout)
-    formatter = logging.Formatter('%(asctime)s.%(msecs)03d:%(filename)s:%(funcName)s(): %(message)s', datefmt='%H:%M:%S')
+    formatter = logging.Formatter('%(asctime)s.%(msecs)03d:swmfio:%(filename)s:%(funcName)s(): %(message)s', datefmt='%H:%M:%S')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -21,5 +21,5 @@ def xlogger():
 
     return logger
 
-logger = xlogger()
+logger = _logger()
 

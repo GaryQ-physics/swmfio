@@ -6,7 +6,7 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
 
     variables_all = ['b','j','u','b1', 'rho','p', 'measure', 'block_id']
     if isinstance(variables, str):
-        if str == "all":
+        if variables == "all":
             variables = variables_all
             save_all = True
         else:
@@ -127,7 +127,6 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
 
     logger.info(" Created block grids.")
 
-    logger.info(f' Creating {celltype}s.')
 
     unique_vertices, pointTo = np.unique(all_vertices, axis=0, return_inverse=True)
     assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
@@ -138,6 +137,7 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
     startOfBlock = 0
 
     celltype = 'VOXEL' # or HEXAHEDRON
+    logger.info(f' Creating {celltype}s.')
     for iBlockP in range(nBlock):
 
         logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
@@ -203,7 +203,7 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
     extra = ""
     if epsilon is not None:
         extra = f"_epsilon={epsilon}"
-    if variables is not None:
+    if variables is not None and save_all == False:
         extra = "_vars=" + ",".join(variables)
     if blocks is not None:
         if len(blocks) < 5:

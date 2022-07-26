@@ -4,7 +4,7 @@ install_requires = ["numpy","scipy","numba","cdflib>=0.4.4"]
 
 setup(
     name='swmfio',
-    version='0.9.0',
+    version='0.9.1',
     author='Gary Quaresima, Bob Weigel',
     author_email='garyquaresima@gmail.com,rweigel@gmu.edu',
     packages=find_packages(),
