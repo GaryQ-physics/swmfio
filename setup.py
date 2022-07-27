@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-install_requires = ["numpy","scipy","numba","cdflib>=0.4.4"]
+install_requires = ["numpy","scipy","numba","cdflib==0.4.4"]
 
 setup(
     name='swmfio',

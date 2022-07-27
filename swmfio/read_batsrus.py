@@ -16,9 +16,9 @@ def read_batsrus(file, tmpdir=None):
         file = swmfio.dlfile(file)
         print(file)
 
-    if fext == 'cdf':
+    if fext == '.cdf':
         from swmfio.batsrus_class import get_class_from_cdf
-        return get_class_from_cdf(file + fext)
+        return get_class_from_cdf(file)
     else:
         file = os.path.join(dirname, fname)
         from swmfio.batsrus_class import get_class_from_native

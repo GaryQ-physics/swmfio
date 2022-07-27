@@ -5,8 +5,6 @@ import re
 def _dlfile(file, tmpdir=None):
 
     import os
-    from urllib.request import urlretrieve
-
     import swmfio
 
     if tmpdir is None:
@@ -31,10 +29,30 @@ def _dlfile(file, tmpdir=None):
         swmfio.logger.info("Found " + tmppath)
     else:
         partfile = tmppath + ".part"
-        swmfio.logger.info("Downloading " + file + " to " + partfile)
+        swmfio.logger.info("Downloading\n  " + file + "\n  to\n  " + partfile)
         try:
-            urlretrieve(dirname + "/" + filename, partfile)
-        except Error as e:
+            import urllib.request
+            #urllib.request.urlretrieve(dirname + "/" + filename, partfile)
+            req = urllib.request.Request(dirname + "/" + filename)
+            response = urllib.request.urlopen(req)
+            #print(response.info().get('Content-Encoding'))
+            length = response.info().get('Content-Length')
+            length_downloaded = 0
+            CHUNK = 16 * 1024
+            import sys
+            with open(partfile, 'wb') as f:
+              while True:
+                if length is not None:
+                    length_downloaded = length_downloaded + CHUNK
+                    sys.stdout.write(7*"\b" + "{0:.2f}{1:s}".format(100*length_downloaded/int(length), "%"))
+                    sys.stdout.flush()
+                chunk = response.read(CHUNK)
+                if not chunk:
+                  sys.stdout.write("\n")  
+                  break
+                f.write(chunk)
+
+        except Exception as e:
             swmfio.logger.info("Download error")
             # Won't remove .part file if application crashes.
             # Would need to register an atexit.
@@ -43,7 +61,7 @@ def _dlfile(file, tmpdir=None):
                 os.remove(partfile)
             raise 
 
-        swmfio.logger.info("Renaming " + partfile + "\nto\n" + tmppath)
+        swmfio.logger.info("Renaming\n  " + partfile + "\n  to  \n  " + tmppath)
         os.rename(partfile, tmppath)
 
     return tmppath
@@ -63,9 +81,8 @@ def dlfile(file, tmpdir=None):
         tmpfile = os.path.join(dirname, fname)         
     else:
         swmfio.logger.info("Remote file is CCMC CDF.")
-        tmpfile = _dlfile(file + ext, tmpdir=tmpdir)        
-        (dirname, fname, fext) = swmfio.util.fileparts(tmpfile)
-        tmpfile = os.path.join(dirname, fname) + fext       
+        tmpfile = _dlfile(file, tmpdir=tmpdir)        
+        tmpfile = os.path.join(dirname, tmpfile)
 
     return tmpfile
 
