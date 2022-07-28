@@ -7,21 +7,12 @@ from datetime import timedelta
 
 import swmfio as swmfio
 
-urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
-tmpdir = '/tmp/'
-filebase = '3d__var_2_e20190902-041000-000'
-
-for ext in ['.tree', '.info', '.out']:
-    filename = filebase + ext
-    if not exists(tmpdir + filename):
-        print("Downloading " + urlbase + filename)
-        print("to")
-        print(tmpdir + filename)
-        urlretrieve(urlbase + filename, tmpdir + filename)
+urlbase = 'http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000'
+filebase = swmfio.dlfile(urlbase, progress=True)
 
 start = timer()
-print("Reading and creating native grid interpolator" + tmpdir + filebase + ".{tree, info, out}")
-batsclass = swmfio.read_batsrus(tmpdir + filebase)
+print("Reading and creating native grid interpolator" + filebase + ".{tree, info, out}")
+batsclass = swmfio.read_batsrus(filebase)
 end = timer()
 print("Time: {}".format(timedelta(seconds=end-start)))
 # Time: 0:00:01.856912

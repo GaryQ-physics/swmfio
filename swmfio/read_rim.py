@@ -66,9 +66,6 @@ def read_iono_tec(filename):
     assert(south.shape == (16471, 22))
     assert(north.shape == (16471, 22))
 
-    # note in the SWMF source code, it would appear  Phi <==> Psi, they are
-    # two different names for same thing ... likely done at some point to avoid
-    # confusion with PHI (the electric potential)
     if True:
         psiN = north[:,4]
         thetaN = north[:,3]

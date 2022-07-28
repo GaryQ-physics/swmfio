@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np 
 from numba import njit, types
 from numba.typed import Dict
 from numba.experimental import jitclass
@@ -39,7 +39,7 @@ spec = [
             ('yGlobalMax', types.float32  ),
             ('zGlobalMax', types.float32  ),
 
-            ('rootnode'   , types.int32  ),
+            ('rootnode'          , types.int32      ),
             ('block_parent_id'   , types.int32[:]   ),
             ('block_child_ids'   , types.int32[:,:] ),
             ('block_amr_levels'  , types.int32[:]   ),
@@ -51,12 +51,13 @@ spec = [
             ('block_z_max'       , types.float32[:] ),
             ('block_child_count' , types.int8[:]    ),
 
-            ('data_arr'  , types.float32[:,:]                             ),
-            ('DataArray' , types.float32[:,:,:,:,:]                       ),
-            ('varidx'    , types.DictType(types.unicode_type, types.int32)),
+            ('data_arr'  , types.float32[:,:]                              ),
+            ('DataArray' , types.float32[:,:,:,:,:]                        ),
+            ('varidx'    , types.DictType(types.unicode_type, types.int32) ),
 
-            ('block2node', types.int32[:]                               ),
-            ('node2block', types.int32[:]                               ),
+            ('block2node', types.int32[:]     ),
+            ('node2block', types.int32[:]     ),
+            ('file'      , types.unicode_type )
         ]
 
 #            ('iRatio_D'  , types.int32[:]                                 ),
@@ -95,7 +96,8 @@ class BatsrusClass:
                     varidx       ,
 
                     block2node   ,
-                    node2block   ):
+                    node2block   ,
+                    file):
 
         self.nDim              = nDim
         self.nI                = nI
@@ -126,6 +128,7 @@ class BatsrusClass:
 
         self.block2node        = block2node
         self.node2block        = node2block
+        self.file              = file
 
         # map blocks and nodes
         for iBlockP in range(block2node.size):
@@ -304,10 +307,10 @@ class BatsrusClass:
         return partials
 
 
+def get_class_from_native(file):
 
-def get_class_from_native(filetag):
-    iTree_IA, iRatio_D, nRoot_D, info = read_tree(filetag)
-    data_arr, variables = read_data(filetag)
+    iTree_IA, iRatio_D, nRoot_D, info = read_tree(file)
+    data_arr, variables = read_data(file)
 
     nI = int(info['BlockSize1'])
     nJ = int(info['BlockSize2'])
@@ -448,16 +451,17 @@ def get_class_from_native(filetag):
 
                       block2node        = block2node   ,
                       node2block        = node2block   ,
-                      )
+                      file              = file
+                )
 
     return batsclass
 
 
-def get_class_from_cdf(filename):
+def get_class_from_cdf(file):
 
     import cdflib.cdfread as cdfread
 
-    cdf = cdfread.CDF(filename)
+    cdf = cdfread.CDF(file)
     globatts = cdf.globalattsget()
 
     npts = int(globatts['number_of_cells'])
@@ -503,14 +507,14 @@ def get_class_from_cdf(filename):
     assert(np.isfortran(DataArray))
 
     block_child_ids = np.array([
-                                cdf.varget('block_child_id_1')[0,:],
-                                cdf.varget('block_child_id_2')[0,:],
-                                cdf.varget('block_child_id_3')[0,:],
-                                cdf.varget('block_child_id_4')[0,:],
-                                cdf.varget('block_child_id_5')[0,:],
-                                cdf.varget('block_child_id_6')[0,:],
-                                cdf.varget('block_child_id_7')[0,:],
-                                cdf.varget('block_child_id_8')[0,:],
+                                    cdf.varget('block_child_id_1')[0,:],
+                                    cdf.varget('block_child_id_2')[0,:],
+                                    cdf.varget('block_child_id_3')[0,:],
+                                    cdf.varget('block_child_id_4')[0,:],
+                                    cdf.varget('block_child_id_5')[0,:],
+                                    cdf.varget('block_child_id_6')[0,:],
+                                    cdf.varget('block_child_id_7')[0,:],
+                                    cdf.varget('block_child_id_8')[0,:],
                                 ])
     block_child_ids = np.array(P2F(block_child_ids), dtype=np.int32)
 
@@ -544,5 +548,7 @@ def get_class_from_cdf(filename):
 
                       block2node        = block2node   ,
                       node2block        = node2block   ,
-                      )
+                      file              = file
+                )
+
     return batsclass

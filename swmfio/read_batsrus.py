@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.io as sio
 
-def read_batsrus(file, tmpdir=None):
+def read_batsrus(file):
 
     import os
     import swmfio
@@ -10,11 +10,6 @@ def read_batsrus(file, tmpdir=None):
 
     (dirname, fname, fext) = swmfio.util.fileparts(file)
     assert fext == "" or fext == ".out" or fext == ".cdf"
-
-    if file.startswith("http"):
-        swmfio.logger.info("Remote file.")
-        file = swmfio.dlfile(file)
-        print(file)
 
     if fext == '.cdf':
         from swmfio.batsrus_class import get_class_from_cdf

@@ -1,10 +1,10 @@
-import numpy as np
-import swmfio
-from swmfio.vtk_export import vtk_export
 
-def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=False):
+def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_ascii=False):
 
-    variables_all = ['b','j','u','b1', 'rho','p', 'measure', 'block_id']
+    import numpy as np
+    import swmfio
+
+    variables_all = ['b', 'j', 'u', 'b1', 'rho', 'p', 'measure', 'block_id']
     if isinstance(variables, str):
         if variables == "all":
             variables = variables_all
@@ -14,34 +14,29 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
 
     from swmfio import logger
 
-    if isinstance(filetag, str):
-        if filetag.startswith("http"):
-            logger.info("Remote file.")
-            filetag = swmfio.dlfile(filetag)
-        logger.info("Reading {}.*".format(filetag))
-        bats_slice = swmfio.read_batsrus(filetag)
-        logger.info("Read {}.*".format(filetag))
-        outname = filetag
+    if isinstance(file_or_class, str):
+        batsclass = swmfio.read_batsrus(file_or_class)
+        fileout = file_or_class
     else:
-        bats_slice = filetag
-        outname = '/tmp/write_BATSRUS_unstructured_grid_vtk'
+        fileout = file_or_class.file
+        batsclass = file_or_class
 
     logger.info("Creating VTK data structure.")
 
-    DA = bats_slice.DataArray
-    vidx = bats_slice.varidx
+    DA = batsclass.DataArray
+    vidx = batsclass.varidx
 
-    nI = bats_slice.nI
-    nJ = bats_slice.nJ
-    nK = bats_slice.nK
-    nBlock = bats_slice.block2node.size
-    nNode = bats_slice.node2block.size
+    nI = batsclass.nI
+    nJ = batsclass.nJ
+    nK = batsclass.nK
+    nBlock = batsclass.block2node.size
+    nNode = batsclass.node2block.size
 
     logger.debug(" (nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
     logger.debug(" nBlock = {0:d}".format(nBlock))
     logger.debug(" nNode  = {0:d}".format(nNode))
 
-    nVar = len(bats_slice.varidx)
+    nVar = len(batsclass.varidx)
 
     assert(DA.shape == (nVar, nI, nJ, nK, nBlock))
     assert(np.isfortran(DA))
@@ -213,21 +208,22 @@ def write_vtk(filetag, variables="all", epsilon=None, blocks=None, use_ascii=Fal
             extra = "_blocks=" + ",".join(blockstrs)
         else:
             extra = f"_Nblocks={len(blocks)}"
-    outname = outname + extra + ".vtk"
+    fileout = fileout + extra + ".vtk"
 
     debug = False
     if logger.getEffectiveLevel() > 20:
         debug = True
 
-    logger.info("Writing " + outname)
+    logger.info("Writing " + fileout)
 
-    vtk_export(outname, unique_vertices,
+    from swmfio.vtk_export import vtk_export
+    vtk_export(fileout, unique_vertices,
                     dataset='UNSTRUCTURED_GRID',
                     connectivity={'CELLS': {celltype: cells} },
                     cell_data=cell_data,
                     ftype=ftype,
                     debug=debug)
 
-    logger.info("Wrote " + outname)
+    logger.info("Wrote " + fileout)
 
-    return outname
+    return fileout

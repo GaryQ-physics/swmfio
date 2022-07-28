@@ -2,24 +2,24 @@ import numpy as np
 from numba import njit
 import re
 
-def _dlfile(file, tmpdir=None):
+def _dlfile(url, dir=None, progress=False):
 
     import os
     import swmfio
 
-    if tmpdir is None:
+    if dir is None:
         import tempfile
         import platform
         system = platform.system()
         if system in ["Darwin", "Linux"]:
-            tmpdir = "/tmp"
+            dir = "/tmp"
         else:
-            tmpdir = tempfile.gettempdir()
+            dir = tempfile.gettempdir()
 
-    (dirname, fname, fext) = fileparts(file)
+    (dirname, fname, fext) = fileparts(url)
     filename = fname + fext
     subdir = dirname.replace("http://","").replace("https://","")
-    subdir = os.path.join(tmpdir, subdir)
+    subdir = os.path.join(dir, subdir)
     if not os.path.exists(subdir):
         swmfio.logger.info("Creating " + subdir)
         os.makedirs(subdir)
@@ -29,7 +29,7 @@ def _dlfile(file, tmpdir=None):
         swmfio.logger.info("Found " + tmppath)
     else:
         partfile = tmppath + ".part"
-        swmfio.logger.info("Downloading\n  " + file + "\n  to\n  " + partfile)
+        swmfio.logger.info("Downloading\n  " + url + "\n  to\n  " + partfile)
         try:
             import urllib.request
             #urllib.request.urlretrieve(dirname + "/" + filename, partfile)
@@ -42,11 +42,11 @@ def _dlfile(file, tmpdir=None):
             import sys
             with open(partfile, 'wb') as f:
               while True:
-                if length is not None:
-                    length_downloaded = length_downloaded + CHUNK
-                    sys.stdout.write(7*"\b" + "{0:.2f}{1:s}".format(100*length_downloaded/int(length), "%"))
-                    sys.stdout.flush()
                 chunk = response.read(CHUNK)
+                if length is not None and progress == True:
+                    length_downloaded = length_downloaded + len(chunk)
+                    sys.stdout.write(7*"\b" + "{0:.1f}{1:s}".format(100*length_downloaded/int(length), "%"))
+                    sys.stdout.flush()
                 if not chunk:
                   sys.stdout.write("\n")  
                   break
@@ -66,22 +66,22 @@ def _dlfile(file, tmpdir=None):
 
     return tmppath
 
-def dlfile(file, tmpdir=None):
+def dlfile(url, dir=None, progress=False):
 
     import os
     import swmfio
 
-    (dirname, fname, fext) = swmfio.util.fileparts(file)
+    (dirname, fname, fext) = swmfio.util.fileparts(url)
 
     if fext == "" or fext == ".out":
         swmfio.logger.info("Remote files are raw simulation output.")
         for ext in ['.tree', '.info', '.out']:
-            tmpfile = _dlfile(file + ext, tmpdir=tmpdir)
+            tmpfile = _dlfile(url + ext, dir=dir, progress=progress)
         (dirname, fname, fext) = swmfio.util.fileparts(tmpfile)
         tmpfile = os.path.join(dirname, fname)         
     else:
         swmfio.logger.info("Remote file is CCMC CDF.")
-        tmpfile = _dlfile(file, tmpdir=tmpdir)        
+        tmpfile = _dlfile(url, dir=dir, progress=progress)        
         tmpfile = os.path.join(dirname, tmpfile)
 
     return tmpfile

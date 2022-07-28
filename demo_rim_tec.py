@@ -2,17 +2,11 @@ import swmfio as swmfio
 from os.path import exists
 from urllib.request import urlretrieve
 
-urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
-tmpdir = '/tmp/'
-filename = 'i_e20190902-041100-000.tec'
+url = 'http://mag.gmu.edu/git-data/swmfio/i_e20190902-041100-000.tec'
 
-if not exists(tmpdir + filename):
-    print("Downloading " + urlbase + filename)
-    print("to")
-    print(tmpdir + filename)
-    urlretrieve(urlbase + filename, tmpdir + filename)
+file = swmfio.dlfile(url, progress=True)
 
-data, varidx, units = swmfio.read_rim(tmpdir + filename)
+data, varidx, units = swmfio.read_rim(file)
 
 import pprint; pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(dict(varidx))

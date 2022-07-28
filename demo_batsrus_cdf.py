@@ -7,18 +7,13 @@ from datetime import timedelta
 
 import swmfio as swmfio
 
-urlbase = 'http://mag.gmu.edu/git-data/swmfio/'
-tmpdir = '/tmp/'
-filename = '3d__var_2_e20190902-041000-000.out.cdf'
+url = 'http://mag.gmu.edu/git-data/swmfio/3d__var_2_e20190902-041000-000.out.cdf'
 
-if not exists(tmpdir + filename):
-    print("Downloading " + urlbase + filename)
-    print("to")
-    print(tmpdir + filename)
-    urlretrieve(urlbase + filename, tmpdir + filename)
+file = swmfio.dlfile(url, progress=True)
 
 start = timer()
-batsclass = swmfio.read_batsrus(tmpdir + filename)
+batsclass = swmfio.read_batsrus(file)
+print(batsclass.file)
 end = timer()
 print("Read time: {}".format(timedelta(seconds=end-start)))
 
