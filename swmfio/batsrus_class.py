@@ -137,8 +137,6 @@ class BatsrusClass:
             print(f"Working on block {iBlockP}/{block2node.size}")
             iNodeP = F2P( self.find_tree_node(data_arr[iBlockP*nI*nJ*nK, 0:3]) )
             print(f"Block {iBlockP} has iNodeP = {iNodeP}")
-            if iBlockP == 0:
-                break # Infinite loop for iBlockP = 1
             self.block2node[iBlockP] = iNodeP
             self.node2block[iNodeP] = iBlockP
 
