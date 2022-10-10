@@ -65,7 +65,10 @@ def read_data(filetag):
     nDim = 3
     ff = sio.FortranFile(filetag+".out", 'r')
     header = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
+    #print(header)
     nStep, Time, nDimOut, nParam, nVar_tmp = ff.read_ints(dtype=np.int32)
+    #print(nStep)
+    #print(Time)
     n_D = ff.read_ints(dtype=np.int32)
     ScalarParams = ff.read_reals(dtype=np.float32)
     npts = n_D[0]; assert(n_D[1]==1 and n_D[2]==1 and n_D.size==3)
@@ -74,6 +77,7 @@ def read_data(filetag):
     # as a results xyz count only once towards nVar.
     nVar = nVar_tmp + 2; del nVar_tmp
     variables = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
+    #print(variables)
     variables = variables.strip().split(' ')
     variables = tuple(variables[:nVar]) # all other variables in the string arent in arrays in the file
 

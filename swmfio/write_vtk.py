@@ -12,8 +12,6 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
         else:
             variables = [variables]
 
-    from swmfio import logger
-
     if isinstance(file_or_class, str):
         batsclass = swmfio.read_batsrus(file_or_class)
         fileout = file_or_class
@@ -21,7 +19,7 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
         fileout = file_or_class.file
         batsclass = file_or_class
 
-    logger.info("Creating VTK data structure.")
+    swmfio.logger.info("Creating VTK data structure.")
 
     DA = batsclass.DataArray
     vidx = batsclass.varidx
@@ -32,9 +30,9 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
     nBlock = batsclass.block2node.size
     nNode = batsclass.node2block.size
 
-    logger.debug(" (nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
-    logger.debug(" nBlock = {0:d}".format(nBlock))
-    logger.debug(" nNode  = {0:d}".format(nNode))
+    swmfio.logger.info(" (nI, nJ, nK) = ({0:d}, {1:d}, {2:d})".format(nI, nJ, nK))
+    swmfio.logger.info(" nBlock = {0:d}".format(nBlock))
+    swmfio.logger.info(" nNode  = {0:d}".format(nNode))
 
     nVar = len(batsclass.varidx)
 
@@ -77,23 +75,23 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
 
     nSelected = np.count_nonzero(is_selected)
 
-    logger.debug(" nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
+    swmfio.logger.info(" nSelected = {0:d} (of {1:d})".format(nSelected, nBlock))
 
     block_id = np.full(nSelected*(nI)*(nJ)*(nK), -1, dtype=np.int32)
     all_vertices = np.full((nSelected*(nI+1)*(nJ+1)*(nK+1), 3), np.nan, dtype=np.float32)
     startOfBlock = 0    # Counter of points in block
     cellIndexStart = 0  # Counter of cells in block
-    logger.info(" Creating block grids.")
+    swmfio.logger.info(" Creating block grids.")
     for iBlockP in range(nBlock):
 
-        logger.debug(f"  Creating grid for block #{iBlockP+1}/{nBlock+1}")
+        swmfio.logger.debug(f"  Creating grid for block #{iBlockP+1}/{nBlock+1}")
 
         if blocks is not None and iBlockP > blocks[-1]:
-            logger.debug("  iBlockP > blocks[-1]. Done.")
+            swmfio.logger.debug("  iBlockP > blocks[-1]. Done.")
             break
 
         if not is_selected[iBlockP]:
-            logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
+            swmfio.logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
             continue
 
         block_id[cellIndexStart:cellIndexStart+nI*nJ*nK] = iBlockP
@@ -109,8 +107,8 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
         ymax = y_blk[0   ,nJ-1,0   , iBlockP] + gridspacing/2.
         zmax = z_blk[0   ,0   ,nK-1, iBlockP] + gridspacing/2.
 
-        logger.debug("    (x, y, z) min = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmin, ymin, zmin))
-        logger.debug("    (x, y, z) max = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmax, ymax, zmax))
+        swmfio.logger.debug("    (x, y, z) min = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmin, ymin, zmin))
+        swmfio.logger.debug("    (x, y, z) max = ({0:.1f}, {1:.1f}, {2:.1f})".format(xmax, ymax, zmax))
 
         grid = np.mgrid[float(xmin):float(xmax+gridspacing):float(gridspacing),
                         float(ymin):float(ymax+gridspacing):float(gridspacing),
@@ -120,7 +118,7 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
         all_vertices[startOfBlock:startOfBlock+(nI+1)*(nJ+1)*(nK+1), :] = grid
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
 
-    logger.info(" Created block grids.")
+    swmfio.logger.info(" Created block grids.")
 
 
     unique_vertices, pointTo = np.unique(all_vertices, axis=0, return_inverse=True)
@@ -132,17 +130,17 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
     startOfBlock = 0
 
     celltype = 'VOXEL' # or HEXAHEDRON
-    logger.info(f' Creating {celltype}s.')
+    swmfio.logger.info(f' Creating {celltype}s.')
     for iBlockP in range(nBlock):
 
-        logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
+        swmfio.logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
 
         if blocks is not None and iBlockP > blocks[-1]:
             logger.debug("  iBlockP > blocks[-1]. Done.")
             break
 
         if not is_selected[iBlockP]:
-            logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
+            swmfio.logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
             continue
 
         # TODO: These loops can be vectorized.
@@ -178,9 +176,9 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
 
     cells = np.array(cells, dtype=int)
 
-    logger.info(f' Created {celltype}s.')    
+    swmfio.logger.info(f' Created {celltype}s.')    
 
-    logger.info("Created VTK data structure.")
+    swmfio.logger.info("Created VTK data structure.")
 
     if 'block_id' in variables:
         cell_data.append(
@@ -211,10 +209,10 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
     fileout = fileout + extra + ".vtk"
 
     debug = False
-    if logger.getEffectiveLevel() > 20:
+    if swmfio.logger.getEffectiveLevel() > 20:
         debug = True
 
-    logger.info("Writing " + fileout)
+    swmfio.logger.info("Writing " + fileout)
 
     from swmfio.vtk_export import vtk_export
     vtk_export(fileout, unique_vertices,
@@ -224,6 +222,6 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
                     ftype=ftype,
                     debug=debug)
 
-    logger.info("Wrote " + fileout)
+    swmfio.logger.info("Wrote " + fileout)
 
     return fileout

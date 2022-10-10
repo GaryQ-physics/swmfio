@@ -3,6 +3,7 @@ from numba import njit, types
 from numba.typed import Dict
 from numba.experimental import jitclass
 
+import swmfio
 from swmfio.constants import Used_,Unused_,Status_,Level_,Parent_,Child1_,Coord1_,CoordLast_
 from swmfio.read_batsrus import read_tree, read_data
 from swmfio.util import unravel_index
@@ -64,7 +65,7 @@ spec = [
 #            ('nRoot_D'   , types.int32[:]                                 ),
 #            ('nInfo'     , types.int32                                    ),
 
-@jitclass(spec)
+#@jitclass(spec)
 class BatsrusClass:
 
     def __init__(self,
@@ -130,9 +131,14 @@ class BatsrusClass:
         self.node2block        = node2block
         self.file              = file
 
-        # map blocks and nodes
+        # map blocks <=> nodes for interpolation; add volume variable
         for iBlockP in range(block2node.size):
+            #swmfio.logger.info(f"Working on block {iBlockP}/{block2node.size}")
+            print(f"Working on block {iBlockP}/{block2node.size}")
             iNodeP = F2P( self.find_tree_node(data_arr[iBlockP*nI*nJ*nK, 0:3]) )
+            print(f"Block {iBlockP} has iNodeP = {iNodeP}")
+            if iBlockP == 0:
+                break # Infinite loop for iBlockP = 1
             self.block2node[iBlockP] = iNodeP
             self.node2block[iNodeP] = iBlockP
 
@@ -155,18 +161,28 @@ class BatsrusClass:
             raise RuntimeError('point out of simulation volume')
 
         iNode = self.rootnode
-        while(True):
+
+        n = 0;
+        while True:
             if self.block_child_count[F2P(iNode)] == 0:
+                print("Node does not have children. Done.")
                 break
 
+            print(f"n = {n}")
+            n = n + 1
             for j in range(self.block_child_count[F2P(iNode)]):
+                print(f"{j}/{self.block_child_count[F2P(iNode)]}")
                 child = self.block_child_ids[j, F2P(iNode)]
 
                 xin = self.block_x_min[F2P(child)] <= point[0] <= self.block_x_max[F2P(child)]
                 yin = self.block_y_min[F2P(child)] <= point[1] <= self.block_y_max[F2P(child)]
                 zin = self.block_z_min[F2P(child)] <= point[2] <= self.block_z_max[F2P(child)]
 
-                if xin and yin and zin: 
+                if xin and yin and zin:
+                    print(f"Found node for given point.")
+                    print(f"x = {point[0]} block_x_min = {self.block_x_min[F2P(child)]} block_x_max = {self.block_x_max[F2P(child)]}")
+                    print(f"y = {point[1]} block_y_min = {self.block_y_min[F2P(child)]} block_y_max = {self.block_y_max[F2P(child)]}")
+                    print(f"z = {point[2]} block_z_min = {self.block_y_min[F2P(child)]} block_z_max = {self.block_y_max[F2P(child)]}")
                     iNode = child
                     break
 
@@ -264,6 +280,7 @@ class BatsrusClass:
 
         c = c0*(1.-zd) + c1*zd
         return c
+
 
     def get_native_partial_derivatives(self, indx, var):
         _x = self.varidx['x']
@@ -471,9 +488,15 @@ def get_class_from_cdf(file):
     nK = int(globatts['special_parameter_NZ'])
     assert( nBlock*nI*nJ*nK == npts )
 
+    swmfio.logger.info(f"npts = {npts}")
+    swmfio.logger.info(f"nBlock = {nBlock}")
+    swmfio.logger.info(f"nI/nJ/nK = {nI}/{nJ}/{nK}")
+
     nNode = cdf.varget('block_amr_levels').size
     block2node = -np.ones((nBlock,), dtype=np.int32)
     node2block = -np.ones((nNode,), dtype=np.int32)
+
+    swmfio.logger.info(f"nNode = {nNode}")
 
     varidx = Dict.empty(key_type=types.unicode_type, value_type=types.int64,)
     units = {}
@@ -483,26 +506,34 @@ def get_class_from_cdf(file):
         if cdf.varget(cdfvar).shape == (1, npts):
             nVar += 1
 
-    nVar += 1 # for measure
+    nVar += 1 # for added measure (volume) variable
 
-    data_arr = np.empty((npts,nVar), dtype=np.float32); data_arr[:,:]=np.nan
+    data_arr = np.empty((npts,nVar), dtype=np.float32);
+    data_arr[:,:] = np.nan
+
     iVar = 0
     for cdfvar in cdf.cdf_info()['zVariables']:
         try:
             var = cdf.varattsget(cdfvar)['Original Name']
         except:
             var = cdfvar
+
         if cdf.varget(cdfvar).shape == (1, npts):
+            #swmfio.logger.info(f"Reading = {cdfvar}")
             data_arr[:, iVar] = cdf.varget(cdfvar)[0,:]
             units[var] = cdf.varattsget(cdfvar)['units']
             varidx[var] = iVar
             iVar += 1
 
+    swmfio.logger.info("varidx = {}".format(varidx))
+
     varidx['measure'] = iVar
 
     assert(not np.isfortran(data_arr))
+
     DataArray = data_arr.transpose()
     assert(np.isfortran(DataArray))
+
     DataArray = DataArray.reshape((nVar, nI, nJ, nK, nBlock), order='F')
     assert(np.isfortran(DataArray))
 

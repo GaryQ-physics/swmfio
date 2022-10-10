@@ -3,7 +3,7 @@ import swmfio
 import logging
 swmfio.logger.setLevel(logging.INFO)
 
-demo_num = 2
+demo_num = 1
 
 if demo_num == 0:
     url = 'http://mag.gmu.edu/git-data/swmfio/3d__var_1_t00000000_n0002500.out.cdf'
