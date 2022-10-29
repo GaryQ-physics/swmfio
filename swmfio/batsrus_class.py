@@ -1,71 +1,58 @@
 import numpy as np 
-from numba import njit, types
-from numba.typed import Dict
-from numba.experimental import jitclass
+import numba
+
+# Using njit gives a 5x speed-up (from 5s to 1s) using timing for second file read
+# sequentially to exclude compile time.
+numba.config.DISABLE_JIT = False
 
 import swmfio
 from swmfio.constants import Used_,Unused_,Status_,Level_,Parent_,Child1_,Coord1_,CoordLast_
 from swmfio.read_batsrus import read_tree, read_data
 from swmfio.util import unravel_index
 
-# npts -> nCell
-# block_parent_id   -> node_parent_id   
-# block_child_ids   -> node_child_ids   
-# block_amr_levels  -> node_amr_levels  
-# block_x_min       -> node_x_min       
-# block_y_min       -> node_y_min       
-# block_z_min       -> node_z_min       
-# block_x_max       -> node_x_max       
-# block_y_max       -> node_y_max       
-# block_z_max       -> node_z_max       
-# block_child_count -> node_child_count 
-
-@njit
+@numba.njit
 def F2P(fortran_index):
     return fortran_index - 1
 
-@njit
+@numba.njit
 def P2F(python_index):
     return python_index + 1
 
 spec = [
-            ('nDim'      , types.int32    ),
-            ('nI'        , types.int32    ),
-            ('nJ'        , types.int32    ),
-            ('nK'        , types.int32    ),
-            ('xGlobalMin', types.float32  ),
-            ('yGlobalMin', types.float32  ),
-            ('zGlobalMin', types.float32  ),
-            ('xGlobalMax', types.float32  ),
-            ('yGlobalMax', types.float32  ),
-            ('zGlobalMax', types.float32  ),
+            ('nDim'      , numba.types.int32    ),
+            ('nI'        , numba.types.int32    ),
+            ('nJ'        , numba.types.int32    ),
+            ('nK'        , numba.types.int32    ),
+            ('xGlobalMin', numba.types.float32  ),
+            ('yGlobalMin', numba.types.float32  ),
+            ('zGlobalMin', numba.types.float32  ),
+            ('xGlobalMax', numba.types.float32  ),
+            ('yGlobalMax', numba.types.float32  ),
+            ('zGlobalMax', numba.types.float32  ),
 
-            ('rootnode'          , types.int32      ),
-            ('block_parent_id'   , types.int32[:]   ),
-            ('block_child_ids'   , types.int32[:,:] ),
-            ('block_amr_levels'  , types.int32[:]   ),
-            ('block_x_min'       , types.float32[:] ),
-            ('block_y_min'       , types.float32[:] ),
-            ('block_z_min'       , types.float32[:] ),
-            ('block_x_max'       , types.float32[:] ),
-            ('block_y_max'       , types.float32[:] ),
-            ('block_z_max'       , types.float32[:] ),
-            ('block_child_count' , types.int8[:]    ),
+            ('amr_level_0_nodes'         , numba.types.int32[:]   ),
+            ('block_parent_id'   , numba.types.int32[:]   ),
+            ('block_child_ids'   , numba.types.int32[:,:] ),
+            ('block_amr_levels'  , numba.types.int32[:]   ),
+            ('block_x_min'       , numba.types.float32[:] ),
+            ('block_y_min'       , numba.types.float32[:] ),
+            ('block_z_min'       , numba.types.float32[:] ),
+            ('block_x_max'       , numba.types.float32[:] ),
+            ('block_y_max'       , numba.types.float32[:] ),
+            ('block_z_max'       , numba.types.float32[:] ),
+            ('block_child_count' , numba.types.int8[:]    ),
 
-            ('data_arr'  , types.float32[:,:]                              ),
-            ('DataArray' , types.float32[:,:,:,:,:]                        ),
-            ('varidx'    , types.DictType(types.unicode_type, types.int32) ),
+            ('data_arr'  , numba.types.float32[:,:]                              ),
+            ('DataArray' , numba.types.float32[:,:,:,:,:]                        ),
+            ('varidx'    , numba.types.DictType(numba.types.unicode_type, numba.types.int32) ),
 
-            ('block2node', types.int32[:]     ),
-            ('node2block', types.int32[:]     ),
-            ('file'      , types.unicode_type )
+            ('block2node', numba.types.int32[:]     ),
+            ('node2block', numba.types.int32[:]     ),
+            ('file'      , numba.types.unicode_type )
         ]
 
-#            ('iRatio_D'  , types.int32[:]                                 ),
-#            ('nRoot_D'   , types.int32[:]                                 ),
-#            ('nInfo'     , types.int32                                    ),
 
-#@jitclass(spec)
+@numba.experimental.jitclass(spec)
 class BatsrusClass:
 
     def __init__(self,
@@ -80,7 +67,7 @@ class BatsrusClass:
                     yGlobalMax,
                     zGlobalMax,
 
-                    rootnode          ,
+                    amr_level_0_nodes         ,
                     block_parent_id   ,
                     block_child_ids   ,
                     block_amr_levels  ,
@@ -100,6 +87,8 @@ class BatsrusClass:
                     node2block   ,
                     file):
 
+        # Verbose style for __init__ arguments and the following
+        # are needed for numba.
         self.nDim              = nDim
         self.nI                = nI
         self.nJ                = nJ
@@ -111,7 +100,7 @@ class BatsrusClass:
         self.yGlobalMax        = yGlobalMax
         self.zGlobalMax        = zGlobalMax
 
-        self.rootnode          = rootnode
+        self.amr_level_0_nodes         = amr_level_0_nodes
         self.block_parent_id   = block_parent_id
         self.block_child_ids   = block_child_ids
         self.block_amr_levels  = block_amr_levels
@@ -131,59 +120,127 @@ class BatsrusClass:
         self.node2block        = node2block
         self.file              = file
 
+
+        #import swmfio # (Can't use with njit enabled)
         # map blocks <=> nodes for interpolation; add volume variable
+
+        debug = False
+
+        if False:
+            if debug:
+                print("   node parentid chldcnt xmin     xmax     ymin     ymax     zmin     zmax")
+            for iNode in range(node2block.size):
+                minx = self.block_x_min[F2P(iNode)]
+                maxx = self.block_x_max[F2P(iNode)]
+                miny = self.block_y_min[F2P(iNode)]
+                maxy = self.block_y_max[F2P(iNode)]
+                minz = self.block_z_min[F2P(iNode)]
+                maxz = self.block_z_max[F2P(iNode)]
+                if debug:
+                    print("{0:7d} {1:7d} {2:4d} {3:8.2f} {4:8.2f} {5:8.2f} {6:8.2f} {7:8.2f} {8:8.2f}".format(iNode, self.block_parent_id[F2P(iNode)], self.block_child_count[F2P(iNode)], minx, maxx, miny, maxy, minz, maxz))
+                break
+
+        #swmfio.logger.info(f"Creating block2node and node2block arrays")
         for iBlockP in range(block2node.size):
             #swmfio.logger.info(f"Working on block {iBlockP}/{block2node.size}")
-            print(f"Working on block {iBlockP}/{block2node.size}")
+            if debug:
+                print(f"Working on block {iBlockP}/{block2node.size}")
             iNodeP = F2P( self.find_tree_node(data_arr[iBlockP*nI*nJ*nK, 0:3]) )
-            print(f"Block {iBlockP} has iNodeP = {iNodeP}")
+            # Will it ever be the case that iNodeP != iBlockP? If not, then this loop is
+            # not needed to create block2node.
+            if debug:
+                print(f"Block {iBlockP} has iNodeP = {iNodeP}")
             self.block2node[iBlockP] = iNodeP
             self.node2block[iNodeP] = iBlockP
 
-            epsilonX = DataArray[varidx['x'], 1,0,0,iBlockP] -  DataArray[varidx['x'], 0,0,0,iBlockP]
-            epsilonY = DataArray[varidx['y'], 0,1,0,iBlockP] -  DataArray[varidx['y'], 0,0,0,iBlockP]
-            epsilonZ = DataArray[varidx['z'], 0,0,1,iBlockP] -  DataArray[varidx['z'], 0,0,0,iBlockP]
-            for k in range(nK):
-                for j in range(nJ):
-                    for i in range(nI):
-                        self.DataArray[varidx['measure'], i, j, k, iBlockP] = epsilonX*epsilonY*epsilonZ
+            if True:
+                # TODO: 
+                epsilonX = DataArray[varidx['x'], 1,0,0, iBlockP] -  DataArray[varidx['x'], 0,0,0, iBlockP]
+                epsilonY = DataArray[varidx['y'], 0,1,0, iBlockP] -  DataArray[varidx['y'], 0,0,0, iBlockP]
+                epsilonZ = DataArray[varidx['z'], 0,0,1, iBlockP] -  DataArray[varidx['z'], 0,0,0, iBlockP]
+                self.DataArray[varidx['measure'], :, :, :, iBlockP] = epsilonX*epsilonY*epsilonZ
+                if False:
+                    for k in range(nK):
+                        for j in range(nJ):
+                            for i in range(nI):
+                                self.DataArray[varidx['measure'], i, j, k, iBlockP] = epsilonX*epsilonY*epsilonZ
+        #swmfio.logger.info(f"Created block2node and node2block arrays")
 
 
     def find_tree_node(self, point):
 
+        debug = False
+
+        if debug:
+            print("Finding node for point:")
+            print(f"x = {point[0]}")
+            print(f"y = {point[1]}")
+            print(f"z = {point[2]}")
+
+
         xin = self.xGlobalMin <= point[0] <= self.xGlobalMax
         yin = self.yGlobalMin <= point[1] <= self.yGlobalMax
         zin = self.zGlobalMin <= point[2] <= self.zGlobalMax
-
         if not (xin and yin and zin): 
             raise RuntimeError('point out of simulation volume')
 
-        iNode = self.rootnode
-
-        n = 0;
-        while True:
-            if self.block_child_count[F2P(iNode)] == 0:
-                print("Node does not have children. Done.")
+        found = False
+        if debug:
+            if len(amr_level_0_nodes) > 0:
+                print("Multiple amr level 0 nodes.")
+                # It seems that the top-level does not always 8 blocks. So we need
+                # to find the top-level node that the point is in.
+                # File that has this:
+                # http://mag.gmu.edu/git-data/bcurtiswx/Differences/data/Brian_Curtis_042213_2/GM_CDF/3d__var_1_e20000101-002500-000.out.cdf'
+        for iNode in self.amr_level_0_nodes:
+            minx = self.block_x_min[F2P(iNode)]
+            maxx = self.block_x_max[F2P(iNode)]
+            miny = self.block_y_min[F2P(iNode)]
+            maxy = self.block_y_max[F2P(iNode)]
+            minz = self.block_z_min[F2P(iNode)]
+            maxz = self.block_z_max[F2P(iNode)]
+            if debug:
+                print("{} {} {} {} {} {} {}".format(iNode, minx, maxx, miny, maxy, minz, maxz))
+            p1 = minx <= point[0] <= maxx
+            p2 = miny <= point[1] <= maxy
+            p3 = minz <= point[2] <= maxz
+            if p1 and p2 and p3:
+                found = True
                 break
 
-            print(f"n = {n}")
-            n = n + 1
+        assert(found == True)
+
+        if debug:
+            print(f"Root node for this point: {iNode}")
+
+        while True:
+            if self.block_child_count[F2P(iNode)] == 0:
+                if debug:
+                    print(f"Node {iNode} does not have children. Done.")
+                break
+
+            found = False
             for j in range(self.block_child_count[F2P(iNode)]):
-                print(f"{j}/{self.block_child_count[F2P(iNode)]}")
+                if debug:
+                    print(f"Checking iNode {iNode} child {j+1}/{self.block_child_count[F2P(iNode)]}")
                 child = self.block_child_ids[j, F2P(iNode)]
+                if debug:
+                    print(f"x = {point[0]} block_x_min = {self.block_x_min[F2P(child)]} block_x_max = {self.block_x_max[F2P(child)]}")
+                    print(f"y = {point[1]} block_y_min = {self.block_y_min[F2P(child)]} block_y_max = {self.block_y_max[F2P(child)]}")
+                    print(f"z = {point[2]} block_z_min = {self.block_y_min[F2P(child)]} block_z_max = {self.block_y_max[F2P(child)]}")
 
                 xin = self.block_x_min[F2P(child)] <= point[0] <= self.block_x_max[F2P(child)]
                 yin = self.block_y_min[F2P(child)] <= point[1] <= self.block_y_max[F2P(child)]
                 zin = self.block_z_min[F2P(child)] <= point[2] <= self.block_z_max[F2P(child)]
 
                 if xin and yin and zin:
-                    print(f"Found node for given point.")
-                    print(f"x = {point[0]} block_x_min = {self.block_x_min[F2P(child)]} block_x_max = {self.block_x_max[F2P(child)]}")
-                    print(f"y = {point[1]} block_y_min = {self.block_y_min[F2P(child)]} block_y_max = {self.block_y_max[F2P(child)]}")
-                    print(f"z = {point[2]} block_z_min = {self.block_y_min[F2P(child)]} block_z_max = {self.block_y_max[F2P(child)]}")
+                    if debug:
+                        print(f"Found node for given point.")
+                    found = True
                     iNode = child
                     break
 
+            # TODO: Add check for max depth to prevent loop from never ending.
         return iNode
 
 
@@ -252,7 +309,7 @@ class BatsrusClass:
             k1 = k0 + 1
 
         # all together i0,i1,j0, etc... form a cube of side length "gridpacing"
-        # To do trilinear interpolation within, define xd as the distanc
+        # To do trilinear interpolation within, define xd as the distance
         # along x of point within that cube, in units of "gridspacing"
         xd = (point[0] - DA[_x, i0, 0 , 0 , iBlockP])/gridspacingX
         yd = (point[1] - DA[_y, 0 , j0, 0 , iBlockP])/gridspacingY
@@ -325,34 +382,52 @@ class BatsrusClass:
 def get_class_from_native(file):
 
     iTree_IA, iRatio_D, nRoot_D, info = read_tree(file)
-    data_arr, variables = read_data(file)
-
+    data_arr, variables, meta = read_data(file)
     nI = int(info['BlockSize1'])
     nJ = int(info['BlockSize2'])
     nK = int(info['BlockSize3'])
-    xGlobalMin = float(info['Coord1Min'])
-    yGlobalMin = float(info['Coord2Min'])
-    zGlobalMin = float(info['Coord3Min'])
-    xGlobalMax = float(info['Coord1Max'])
-    yGlobalMax = float(info['Coord2Max'])
-    zGlobalMax = float(info['Coord3Max'])
+
+    if 'Coord1Min' in info:
+        xGlobalMin = float(info['Coord1Min'])
+        yGlobalMin = float(info['Coord2Min'])
+        zGlobalMin = float(info['Coord3Min'])
+        xGlobalMax = float(info['Coord1Max'])
+        yGlobalMax = float(info['Coord2Max'])
+        zGlobalMax = float(info['Coord3Max'])
+    else:
+        xGlobalMin = float(info['CoordMin1'])
+        yGlobalMin = float(info['CoordMin2'])
+        zGlobalMin = float(info['CoordMin3'])
+        xGlobalMax = float(info['CoordMax1'])
+        yGlobalMax = float(info['CoordMax2'])
+        zGlobalMax = float(info['CoordMax3'])
 
     nNode = iTree_IA.shape[1]
     npts = data_arr.shape[0]
     nBlock = npts//(nI*nJ*nK) if npts%(nI*nJ*nK)==0 else -1
 
+    swmfio.logger.info(f"Preparing DataArray")
+
     assert(not np.isfortran(data_arr))
     DataArray = data_arr.transpose()
     assert(np.isfortran(DataArray))
+
+    # +1 for added variable 'measure' (volume)
     DataArray = DataArray.reshape((len(variables)+1, nI, nJ, nK, nBlock), order='F')
     assert(np.isfortran(DataArray))
+    swmfio.logger.info(f"Prepared DataArray")
 
-    varidx = Dict.empty(
-        key_type=types.unicode_type,
-        value_type=types.int32,
+    swmfio.logger.info(f"Creating numba varidx Dict")
+    # This is very slow.
+    # https://github.com/numba/numba/issues/3644
+    varidx = numba.typed.Dict.empty(
+                    key_type=numba.types.unicode_type,
+                    value_type=numba.types.int32,
         )
+    swmfio.logger.info(f"Created numba varidx Dict")
+
     varidx['measure'] = np.int32(len(variables))
-    for ivar,var in enumerate(variables):
+    for ivar, var in enumerate(variables):
         varidx[var] = np.int32(ivar)
 
     # In what follows, the P in iNodeP and iBlockP stands for Python-like
@@ -365,10 +440,6 @@ def get_class_from_native(file):
     # each node with a status of used. 
     #
     # Note, nBlock*nI*nJ*nK = total number of batsrus cells (npts)
-
-    # initialize arrays to -1 (invalid index), will be computed in __init__
-    block2node = -np.ones((nBlock,), dtype=np.int32)
-    node2block = -np.ones((nNode,), dtype=np.int32)
 
     # from SWMF/GM/BATSRUS/srcBATL/BATL_tree.f90 line 951 with substitutions
     def get_tree_position(iNode):
@@ -400,6 +471,13 @@ def get_class_from_native(file):
     block_child_ids = iTree_IA[F2P(Child1_):F2P(Child1_)+8, :].copy()
     block_amr_levels = iTree_IA[F2P(Level_), :].copy()
 
+    amr_level_0_nodes = np.array(P2F(np.where(block_amr_levels == 0)[0]), dtype='int32')
+
+    swmfio.logger.info(f"Creating min/max arrays")
+    # initialize arrays to -1 (invalid index), will be computed in __init__
+    block2node = -np.ones((nBlock,), dtype=np.int32)
+    node2block = -np.ones((nNode,), dtype=np.int32)
+
     block_x_min = np.empty(nNode, dtype=np.float32)
     block_y_min = np.empty(nNode, dtype=np.float32)
     block_z_min = np.empty(nNode, dtype=np.float32)
@@ -407,6 +485,9 @@ def get_class_from_native(file):
     block_y_max = np.empty(nNode, dtype=np.float32)
     block_z_max = np.empty(nNode, dtype=np.float32)
     block_child_count = np.empty(nNode, dtype=np.int8)
+    swmfio.logger.info(f"Created min/max arrays")
+
+    swmfio.logger.info(f"Populating min/max arrays")
     for iNodeP in range(nNode):
         if   iTree_IA[F2P(Status_), iNodeP] == Used_:
             block_child_count[iNodeP] = 0
@@ -423,7 +504,7 @@ def get_class_from_native(file):
         z_range = zGlobalMax - zGlobalMin
 
         iLevel = iTree_IA[F2P(Level_), iNodeP]
-        assert(nI == nJ == nK) #!!!!
+        assert(nI == nJ == nK)
         assert(x_range == y_range == z_range)
         gridspacing = (x_range/nI)*0.5**iLevel
 
@@ -435,6 +516,7 @@ def get_class_from_native(file):
         block_y_max[iNodeP] = y_range*(PositionMax_D[1]) + y_start
         block_z_max[iNodeP] = z_range*(PositionMax_D[2]) + z_start
 
+    swmfio.logger.info(f"Populated min/max arrays")
 
     batsclass = BatsrusClass(
                       nDim              = 3         ,
@@ -448,7 +530,7 @@ def get_class_from_native(file):
                       yGlobalMax        = yGlobalMax,
                       zGlobalMax        = zGlobalMax,
 
-                      rootnode          = 1,
+                      amr_level_0_nodes = amr_level_0_nodes,
                       block_parent_id   = block_parent_id   ,
                       block_child_ids   = block_child_ids   ,
                       block_amr_levels  = block_amr_levels  ,
@@ -496,7 +578,7 @@ def get_class_from_cdf(file):
 
     swmfio.logger.info(f"nNode = {nNode}")
 
-    varidx = Dict.empty(key_type=types.unicode_type, value_type=types.int64,)
+    varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, value_type=numba.types.int64,)
     units = {}
 
     nVar = 0
@@ -506,7 +588,7 @@ def get_class_from_cdf(file):
 
     nVar += 1 # for added measure (volume) variable
 
-    data_arr = np.empty((npts,nVar), dtype=np.float32);
+    data_arr = np.empty((npts, nVar), dtype=np.float32);
     data_arr[:,:] = np.nan
 
     iVar = 0
@@ -547,6 +629,9 @@ def get_class_from_cdf(file):
                                 ])
     block_child_ids = np.array(P2F(block_child_ids), dtype=np.int32)
 
+    amr_level_0_nodes = P2F( cdf.varget('block_at_amr_level')[0,:] )
+    amr_level_0_nodes = np.array(amr_level_0_nodes, dtype=np.int32)
+
     batsclass = BatsrusClass(
                       nDim              = globatts['grid_system_1_number_of_dimensions'],
                       nI                = nI,
@@ -559,7 +644,7 @@ def get_class_from_cdf(file):
                       yGlobalMax        = globatts['global_y_max'],
                       zGlobalMax        = globatts['global_z_max'],
 
-                      rootnode          = P2F( cdf.varget('block_at_amr_level')[0,0] ),
+                      amr_level_0_nodes         = amr_level_0_nodes,
                       block_parent_id   = cdf.varget('block_parent_id')[0,:],
                       block_child_ids   = block_child_ids,
                       block_amr_levels  = np.array(cdf.varget('block_amr_levels')[0,:], dtype=np.int32),

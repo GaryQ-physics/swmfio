@@ -18,7 +18,7 @@
 # 1 Overview
 
 `swmfio` reads magnetosphere and ionosphere data files from an [SWMF](https://clasp.engin.umich.edu/research/theory-computational-methods/swmf-downloadable-software/) run.
-* For the BATSRUS magnetosphere module, it reads native `.out`, `.tree`, and `.info` files or CCMC `.cdf` files containing the same information. (Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation (that was needed for field line tracing) much slower.)
+* For the BATSRUS magnetosphere module, it reads native `.out`, `.tree`, and `.info` files or CCMC `.cdf` files containing the same information. (Although [SpacePy](https://spacepy.org) contains a BATRSUS native file reader, it returns an unstructured grid, which makes interpolation, which was needed for field line tracing, much slower. Note that the `swmfio` native file reader is not as general as that in SpacePy; for example ,files with multiple time steps are not handled.)
 
 
 * For the RIM ionosphere module, it reads `.tec` files or CCMC `.cdf` files containing the same information (for RIM `.idl` files, use [SpacePy](https://spacepy.github.io/autosummary/spacepy.pybats.rim.html)). 

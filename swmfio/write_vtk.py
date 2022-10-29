@@ -4,20 +4,33 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
     import numpy as np
     import swmfio
 
-    variables_all = ['b', 'j', 'u', 'b1', 'rho', 'p', 'measure', 'block_id']
-    if isinstance(variables, str):
-        if variables == "all":
-            variables = variables_all
-            save_all = True
-        else:
-            variables = [variables]
-
     if isinstance(file_or_class, str):
         batsclass = swmfio.read_batsrus(file_or_class)
         fileout = file_or_class
     else:
         fileout = file_or_class.file
         batsclass = file_or_class
+
+    variables_all = list(dict(batsclass.varidx).keys())
+    # This function only has an option of writing full vector elements. So any
+    # variable ending with x, y, or z is renamed to not have that ending.
+    # TODO: Also check if requested variable is 'x', 'y', or 'z', which is always written
+    # and so requesting it does not make sense.
+    for v in range(len(variables_all)):
+        if len(variables_all[v]) > 1 and (variables_all[v].endswith('x') or variables_all[v].endswith('y') or variables_all[v].endswith('z')):
+            variables_all[v] = variables_all[v][0:-1]
+    variables_all = list(set(variables_all))
+
+    save_all = True
+    if isinstance(variables, str):
+        if variables == "all":
+            variables = variables_all
+        else:
+            save_all = False
+            variables = [variables]
+
+    for variable in variables:
+        assert variable in variables_all, f"'{variable}' is not in list of available variables: {variables_all}"
 
     swmfio.logger.info("Creating VTK data structure.")
 
@@ -120,12 +133,16 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
 
     swmfio.logger.info(" Created block grids.")
 
-
+    swmfio.logger.info(" Checking that vertices are unique")
     unique_vertices, pointTo = np.unique(all_vertices, axis=0, return_inverse=True)
     assert(np.all( unique_vertices[pointTo, :] == all_vertices ))
+    swmfio.logger.info(" Checked that vertices are unique")
 
+    swmfio.logger.info(" Creating nodes of blocks")
     # Nodes of blocks
     loc_in_block = np.arange((nI+1)*(nJ+1)*(nK+1)).reshape( ((nI+1),(nJ+1),(nK+1)) )
+    swmfio.logger.info(" Created nodes of blocks")
+
     cells = []
     startOfBlock = 0
 
@@ -136,14 +153,14 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
         swmfio.logger.debug(f"  Creating cells for block #{iBlockP+1}/{nBlock+1}")
 
         if blocks is not None and iBlockP > blocks[-1]:
-            logger.debug("  iBlockP > blocks[-1]. Done.")
+            swmfio.logger.debug("  iBlockP > blocks[-1]. Done.")
             break
 
         if not is_selected[iBlockP]:
             swmfio.logger.debug(f"  Block #{iBlockP+1} not selected. Omitting.")
             continue
 
-        # TODO: These loops can be vectorized.
+        # TODO: These loops can be vectorized; or, use njit.
         for i in range(nI):
             for j in range(nJ):
                 for k in range(nK):
@@ -172,7 +189,6 @@ def write_vtk(file_or_class, variables="all", epsilon=None, blocks=None, use_asc
                             )
 
         startOfBlock += (nI+1)*(nJ+1)*(nK+1)
-
 
     cells = np.array(cells, dtype=int)
 

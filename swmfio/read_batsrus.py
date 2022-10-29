@@ -6,21 +6,28 @@ def read_batsrus(file):
     import os
     import swmfio
 
-    swmfio.logger.info("Called with file = " + file)
 
     (dirname, fname, fext) = swmfio.util.fileparts(file)
     assert fext == "" or fext == ".out" or fext == ".cdf"
 
+    swmfio.logger.info("Creating class for file = " + file)
     if fext == '.cdf':
         from swmfio.batsrus_class import get_class_from_cdf
-        return get_class_from_cdf(file)
+        cls = get_class_from_cdf(file)
+        swmfio.logger.info("Created class for file = " + file)
+        return cls 
     else:
         file = os.path.join(dirname, fname)
         from swmfio.batsrus_class import get_class_from_native
-        return get_class_from_native(file)
+        cls = get_class_from_native(file)
+        swmfio.logger.info("Created class for file = " + file)
+        return cls
 
 
 def read_tree(filetag):
+
+    import swmfio
+
     # first read info file
     info = {'filetag' : filetag}
     with open(filetag+'.info','r') as f:
@@ -35,9 +42,16 @@ def read_tree(filetag):
     ff = sio.FortranFile(filetag+".tree", 'r')
     nDim, nInfo, nNode = ff.read_ints(dtype=np.int32)
     iRatio_D = ff.read_ints(dtype=np.int32) # Array of refinement ratios
-    nRoot_D = ff.read_ints(dtype=np.int32) # The number of root nodes in all dimension
-    iTree_IA = ff.read_ints(dtype=np.int32).reshape((nInfo,nNode), order='F')
+    nRoot_D = ff.read_ints(dtype=np.int32)  # The number of root nodes in all dimensions
+    iTree_IA = ff.read_ints(dtype=np.int32).reshape((nInfo, nNode), order='F')
     ff.close()
+
+    swmfio.logger.info(f"nDim = {nDim}")
+    swmfio.logger.info(f"nInfo = {nInfo}")
+    swmfio.logger.info(f"nNode = {nNode}")
+    swmfio.logger.info(f"iRatio_D = {iRatio_D}")
+    swmfio.logger.info(f"nRoot_D = {nRoot_D}")
+    #swmfio.logger.info(f"iTree_IA = {iTree_IA}")
 
     assert(nDim == int(info['nDim']))
 
@@ -62,37 +76,44 @@ def read_tree(filetag):
 
 
 def read_data(filetag):
+
+    import swmfio
+
+    meta = {}
     nDim = 3
-    ff = sio.FortranFile(filetag+".out", 'r')
+    ff = sio.FortranFile(filetag + ".out", 'r')
+
     header = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
-    #print(header)
-    nStep, Time, nDimOut, nParam, nVar_tmp = ff.read_ints(dtype=np.int32)
-    #print(nStep)
-    #print(Time)
+    nStep, Time, nDimOut, nParam, nVar = ff.read_ints(dtype=np.int32)
+
     n_D = ff.read_ints(dtype=np.int32)
-    ScalarParams = ff.read_reals(dtype=np.float32)
-    npts = n_D[0]; assert(n_D[1]==1 and n_D[2]==1 and n_D.size==3)
+    swmfio.logger.info(f"n_D = {n_D}")
+    npts = n_D[0];
+    assert(n_D[1] == 1 and n_D[2] == 1 and n_D.size==3)
 
-    # x,y,and z  are stored as one larger array in file. All others are stored seperately
-    # as a results xyz count only once towards nVar.
-    nVar = nVar_tmp + 2; del nVar_tmp
+    ScalarValues = ff.read_reals(dtype=np.float32)
+    swmfio.logger.info(f"ScalarValues = {ScalarValues}")
+
+    # nVar does not include x, y, and z.
+    nVar = nVar + 3
     variables = ff.read_ints(dtype=np.uint8).tobytes().decode('UTF-8')
-    #print(variables)
-    variables = variables.strip().split(' ')
-    variables = tuple(variables[:nVar]) # all other variables in the string arent in arrays in the file
+    variables = variables.strip().lower().split(' ')
 
-    data_arr = np.empty((npts, nVar+1), order='C', dtype=np.float32)
-    data_arr[:, -1] = np.nan
+    arrays = tuple(variables[:nVar]) # all other variables in the string are not in arrays in the file
+    scalars = tuple(variables[nVar:])
 
-    xyz = ff.read_reals(dtype=np.float32).reshape(3, npts) 
-    data_arr[:, 0] = xyz[0,:]
-    data_arr[:, 1] = xyz[1,:]
-    data_arr[:, 2] = xyz[2,:]
-    for iVar in range(3,nVar):
-        data_arr[:, iVar] = ff.read_reals(dtype=np.float32)
+    # +1 for variable 'measure' added later (volume)
+    data = np.empty((npts, nVar+1), order='C', dtype=np.float32)
+    data[:, -1] = np.nan # Should not be needed, but can be used to check.
 
-    status = ff.read_reals(dtype=np.float32) #? whatever this means
-    # check to make sure ff is at the end of the file
+    swmfio.logger.info(f"Reading {nVar} arrays")
+    # Read xyz
+    data[:,0:3] = ff.read_reals(dtype=np.float32).reshape(3, npts).T
+    # Read grid variables
+    for iVar in range(3, nVar):
+        data[:, iVar] = ff.read_reals(dtype=np.float32)
+    swmfio.logger.info(f"Read {nVar} arrays")
+
     try:
         ff.read_reals(dtype=np.float32)
         assert(False)
@@ -102,7 +123,27 @@ def read_data(filetag):
         pass
 
     ff.close()
-    expectedheader = "R R R Mp/cc km/s km/s km/s J/m3 nT nT nT nT nT nT nPa uA/m2 uA/m2 uA/m2 --"
-    assert(expectedheader == header.strip())
-    return data_arr, variables
 
+    meta['header'] = header.strip()
+    meta['nStep'] = nStep
+    meta['Time'] = Time
+    meta['nDimOut'] = nDimOut
+    meta['nParam'] = nParam
+    meta['nVar'] = nVar
+    meta['ScalarValues'] = ScalarValues
+    meta['Arrays'] = arrays
+    meta['Scalars'] = scalars
+
+    units = meta['header'].split(' ')
+    if units[0][0].isdigit():
+        # In some files, the header contains a timestamp followed by units.
+        # TODO: Find more general way to handle this. What is spec for header?
+        meta['ArrayUnits'] = tuple(units[1:nVar+1])
+    else:
+        meta['ArrayUnits'] = tuple(units[:nVar])
+
+    swmfio.logger.info("header: " + header.strip())
+    swmfio.logger.info("arrays: {}".format(arrays))
+    swmfio.logger.info("data.shape: {}".format(data.shape))
+
+    return data, arrays, meta
