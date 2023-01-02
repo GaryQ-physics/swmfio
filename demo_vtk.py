@@ -3,8 +3,8 @@ import swmfio
 import logging
 swmfio.logger.setLevel(logging.INFO)
 
-demo_nums = [1, 2, 3, 4, 5, 6, 7]
-demo_nums = [6]
+demo_nums = [1, 2, 3, 4, 5, 6, 7, 8]
+demo_nums = [8]
 
 for demo_num in demo_nums:
     if demo_num == 1:
@@ -56,3 +56,8 @@ for demo_num in demo_nums:
         batsclass = swmfio.read_batsrus(file)
         vtkfile = swmfio.write_vtk(batsclass)
 
+    if demo_num == 8:
+        url = 'http://mag.gmu.edu/git-data/dwelling/divB_simple1/GM/3d__mhd_4_e20100320-000000-000'
+        file = swmfio.dlfile(url, progress=True)
+        batsclass = swmfio.read_batsrus(file)
+        vtkfile = swmfio.write_vtk(batsclass)
