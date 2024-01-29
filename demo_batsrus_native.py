@@ -58,6 +58,7 @@ if True:
     if False:
         # Demonstrate/check interpolation without swmfio. This takes a very long time
         # (> 10 minutes if it does not throw error)
+        # TODO: Benchmark NearestNDInterpolator
         from scipy.interpolate import LinearNDInterpolator
         start = timer()
         xg = batsclass.data_arr[:,var_dict['x']]
