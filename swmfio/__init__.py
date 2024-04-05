@@ -3,6 +3,7 @@ from swmfio.read_batsrus import read_batsrus
 from swmfio.write_vtk import write_vtk
 from swmfio.util import fileparts
 from swmfio.util import dlfile
+from swmfio.batsrus_interpolator import batsrus_interpolator
 
 def _logger():
     import sys

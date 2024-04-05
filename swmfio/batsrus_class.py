@@ -577,8 +577,9 @@ def get_class_from_cdf(file):
     node2block = -np.ones((nNode,), dtype=np.int32)
 
     swmfio.logger.info(f"nNode = {nNode}")
-
-    varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, value_type=numba.types.int64,)
+    #DT fixed bug.  Per spec definition, lines 21-52, varidx is int32, not int64
+    #DT varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, value_type=numba.types.int64,)
+    varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, value_type=numba.types.int32,)
     units = {}
 
     nVar = 0
