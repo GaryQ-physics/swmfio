@@ -221,7 +221,10 @@ def read_iono_cdf(filename):
         )
     units = {}
 
-    data_arr = np.empty((23, 2+180*179), dtype=np.float32); data_arr[:,:]=np.nan
+    #DT fix data_arr initialization to allow for arbitrary number of zVariables
+    # data_arr = np.empty((23, 2+180*179), dtype=np.float32); data_arr[:,:]=np.nan
+    sz_data_arr = len(cdf.cdf_info()['zVariables']) + 1
+    data_arr = np.empty((sz_data_arr, 2+180*179), dtype=np.float32); data_arr[:,:]=np.nan
     iVar = 0
     for cdfvar in cdf.cdf_info()['zVariables']:
         var = cdf.varattsget(cdfvar)['Original Name']
@@ -245,7 +248,9 @@ def read_iono_cdf(filename):
     varidx['Psi'] = _Psi = iVar
     varidx['Theta'] = _Theta = iVar+1
     varidx['measure'] = _measure = iVar+2
-    assert(_measure == 22)
+    #DT fix data_arr for arbitary number of zVariables
+    # assert(_measure == 22)
+    assert(_measure == sz_data_arr-1)
 
     data_arr[_Psi, 0] = 0. # or np.nan?
     data_arr[_Psi, 1] = 0.
