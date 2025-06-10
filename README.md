@@ -1,6 +1,6 @@
 `swmfio` - I/O related to SWMF simulation data
 
-[![DOI](https://zenodo.org/badge/353944170.svg)](https://zenodo.org/badge/latestdoi/353944170)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6570631.svg)](https://doi.org/10.5281/zenodo.6570631)
 
 <!--- TOC --->
 [1 Overview](#1-overview)<br/>
